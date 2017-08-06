@@ -1,39 +1,73 @@
-﻿using System;
+﻿//
+// function and parameter descriptions are directly from MSDN whereever possible.
+//
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Runtime.InteropServices;
+using Microsoft.Win32.SafeHandles;
 
 namespace WecAdmin
 {
     /// <summary>
-    /// Contains event collector data (event subscription data) or property values.
+    /// The EC_VARIANT structure contains event collector data (subscription data) or property values.
     /// </summary>
     [StructLayout(LayoutKind.Explicit)]
     public struct EC_VARIANT
     {
+        /// <summary>
+        /// A boolean value
+        /// </summary>
         [FieldOffset(0)]
         public IntPtr BooleanVal;
+        /// <summary>
+        ///  an unsigned 32-bit integer value
+        /// </summary>
         [FieldOffset(0)]
         public IntPtr UInt32Val;
+        /// <summary>
+        /// A ULONGLONG value
+        /// </summary>
         [FieldOffset(0)]
         public IntPtr DateTimeVal;
+        /// <summary>
+        /// A null-terminated Unicode value
+        /// </summary>
         [FieldOffset(0)]
         public IntPtr StringValue;
+        /// <summary>
+        /// a hexadecimal binary value
+        /// </summary>
         [FieldOffset(0)]
         public byte BinaryVal;
+        /// <summary>
+        /// A pointer to an array of Boolean values
+        /// </summary>
         [FieldOffset(0)]
         public IntPtr BooleanArr;
+        /// <summary>
+        /// A pointer to an arrya of signed 32-bit integer values
+        /// </summary>
         [FieldOffset(0)]
         public IntPtr Int32Arr;
+        /// <summary>
+        /// A pointer to an array of null-terminated strings
+        /// </summary>
         [FieldOffset(0)]
         public IntPtr StringArr;
+        /// <summary>
+        /// The number of elements (not legnth) in bytes. Used for arrays and binary or string types.
+        /// </summary>
         [FieldOffset(8)]
         public UInt32 Count;
+        /// <summary>
+        /// The type of data in the structure. Use a value from the EC_VARIANT_TYPE enumeration to specify the type. When the type is specified, you can use any of the union members to access the actual value. For example, if the type is EcVarTypeDateTime, then the value is DateTimeVal in the EC_VARIANT structure.
+        /// </summary>
         [FieldOffset(12)]
         public UInt32 Type;
-    }
+    } // public struct EC_VARIANT
 
     class PInvokeMethods
     {
@@ -450,6 +484,16 @@ namespace WecAdmin
             IntPtr Object
             );
 
+        /// <summary>
+        /// The EcGetSubscriptionProperty function retrieves a specific property value from a subscription object. The subscription object is specified by the handle passed into the Subscription parameter.
+        /// </summary>
+        /// <param name="Subscription">The handle to the subscription object.</param>
+        /// <param name="PropertyId">An identifier that specifies which property of the subscription to get. Specify a value from the EC_SUBSCRIPTION_PROPERTY_ID enumeration. If you specify the EcSubscriptionEventSources value, then a handle to an array (EC_OBJECT_ARRAY_PROPERTY_HANDLE) will be returned. You can then use the EcGetObjectArrayProperty and EcSetObjectArrayProperty functions to get and set the Address, Enabled, UserName, and Password properties in the array</param>
+        /// <param name="Flags">Reserved. Must be zero.</param>
+        /// <param name="PropertyValueBufferSize">The size of the user-supplied buffer to store the property value into.</param>
+        /// <param name="PropertyValueBuffer">The user-supplied buffer to store property value into.</param>
+        /// <param name="PropertyValueBufferUsed">The size of the user-supplied buffer that is used by the function on successful return, or the size that is necessary to store the property value when function fails with ERROR_INSUFFICIENT_BUFFER.</param>
+        /// <returns>True if the function was successful. False if the function failed. Use the GetLastError function to obtain the error code.</returns>
         [DllImport("wecapi.dll", SetLastError = true, CharSet = CharSet.Auto)]
         public static extern bool EcGetSubscriptionProperty(
             IntPtr Subscription,
@@ -460,7 +504,17 @@ namespace WecAdmin
             ref Int32 PropertyValueBufferUsed
             );
 
-
+        /// <summary>
+        /// The EcGetSubscriptionRunTimeStatus function retrieves the run time status information for an event source of a subscription or the subscription itself. The subscription is specified by its name. If the event source is NULL, then the status for the overall subscription is retrieved.
+        /// </summary>
+        /// <param name="SubscriptionName"></param>
+        /// <param name="StatusInfoId">An identifier that specifies which run time status information to get from the subscription. Specify a value from the EC_SUBSCRIPTION_RUNTIME_STATUS_INFO_ID enumeration. The EcSubscriptionRunTimeStatusEventSources value can be used to obtain the list of event sources associated with a subscription.</param>
+        /// <param name="EventSourceName">The name of the event source to get the status from. Each subscription can have multiple event sources.</param>
+        /// <param name="Flags">Reserved. Must be zero.</param>
+        /// <param name="PropertyValueBufferSize">The size of the user-supplied buffer that will hold the run time status information.</param>
+        /// <param name="PropertyValueBuffer">The user-supplied buffer that will hold the run time status information. The buffer will hold the appropriate value depending on the EC_SUBSCRIPTION_RUNTIME_STATUS_INFO_ID value passed into the StatusInfoId parameter.</param>
+        /// <param name="PropertyValueBufferUsed">The size of the user supplied buffer that is used by the function on successful return, or the size that is necessary to store the property value when function fails with ERROR_INSUFFICIENT_BUFFER.</param>
+        /// <returns>True if successful, false if not. Use GetLastError to obtain the error code.</returns>
         [DllImport("wecapi.dll", SetLastError = true, CharSet = CharSet.Auto)]
         public static extern bool EcGetSubscriptionRunTimeStatus(
             string SubscriptionName,
@@ -477,7 +531,7 @@ namespace WecAdmin
         /// </summary>
         /// <param name="Flags">Reserved, must be zero.</param>
         /// <returns>If the function succeeds, it returns an handle (EC_HANDLE) to a new subscription enumerator object. Returns NULL otherwise, in which case use the GetLastError function to obtain the error code.</returns>
-        [DllImport("wecapi.dll", SetLastError = true, CharSet = CharSet.Auto)]
+        [DllImport("wecapi.dll", SetLastError = true, CharSet = CharSet.Unicode)]
         public static extern IntPtr EcOpenSubscriptionEnum(
             Int32 Flags
             );
@@ -490,7 +544,7 @@ namespace WecAdmin
         /// <param name="SubscriptionNameBuffer">The user-supplied buffer to store the subscription name.</param>
         /// <param name="SubscriptionNameBufferUsed">The size of the user-supplied buffer that is used by the function on successful return, or the size that is necessary to store the subscription name when the function fails with ERROR_INSUFFICIENT_BUFFER.</param>
         /// <returns>True if successful, False if the function failed. Use the GetLastError function to obtain the error code.</returns>
-        [DllImport("wecapi.dll", SetLastError = true, CharSet = CharSet.Auto)]
+        [DllImport("wecapi.dll", SetLastError = true, CharSet = CharSet.Unicode)]
         public static extern bool EcEnumNextSubscription(
             IntPtr SubscriptionEnum,
             Int32 SubscriptionNameBufferSize,

@@ -1,4 +1,7 @@
-﻿using System;
+﻿// This is the wrapper program for unit testing purposes only.
+// see WecAdmin project for .NET to Win32 interface
+
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -495,16 +498,16 @@ namespace WecAdministration
             // 2016-11-26:THIS DOES SEEM TO BE THE CASE - HEAP CORRUPTION NOT OBSERVED WHEN COMMENTED OUT!
             // things to check: verify signatures/structure definitions.
             // does the wecsvc tolarate having multiple handles open to it from same process?
-            //Console.WriteLine("enumerating all subscriptions.");
-            //List<string> subs = WecAdmin.EventCollectorAdmin.EnumerateSubscriptions();
-            //Console.WriteLine("done!");
+            Console.WriteLine("enumerating all subscriptions.");
+            List<string> subs = WecAdmin.EventCollectorAdmin.EnumerateSubscriptions();
+            Console.WriteLine("done!");
 
-            //Console.WriteLine("Local subscriptions");
-            //for (int j = 0; j < subs.Count; j++)
-            //{
-            //    Console.WriteLine("\tSubscription:{0}", subs[j]);
-            //}
-            //Console.WriteLine("end subscriptions");
+            Console.WriteLine("Local subscriptions");
+            for (int j = 0; j < subs.Count; j++)
+            {
+                Console.WriteLine("\tSubscription:{0}", subs[j]);
+            }
+            Console.WriteLine("end subscriptions");
             //Lowfi-collection
             //SnitchDirectToCosmos
             // hardcoded to work with top comment.
@@ -577,7 +580,7 @@ namespace WecAdministration
                 } // if (lastError == ERROR_INSUFFICIENT_BUFFER)
             } // for (int srcCount = 0; srcCount < subSources.Count; srcCount++)
             Console.WriteLine("Hit Enter to exit.");
-            Console.ReadLine();
+            //Console.ReadLine();
         } // static void Main(string[] args)
 
         private static  List<string> listSubscriptionRuntimeEventSources(string subscriptionName)

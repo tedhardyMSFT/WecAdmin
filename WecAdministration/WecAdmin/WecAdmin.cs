@@ -75,35 +75,45 @@ namespace WecAdmin
             while (enumReturnVal)
             {
                 Int32 bufferSize = 0;
-                IntPtr buffer = IntPtr.Zero;
+                Int32 bufferUsed = 0;
+                IntPtr outputBuffer = IntPtr.Zero;
                 // this call will fail due to insufficient buffer
                 enumReturnVal = PInvokeMethods.EcEnumNextSubscription(
                     ecEnumHandle,
                     bufferSize,
-                    buffer,
-                    ref bufferSize);
+                    outputBuffer,
+                    ref bufferUsed);
 
                 // get status from function
                 Int32 statusMessage = Marshal.GetLastWin32Error();
                 // reached end of list
                 if (statusMessage == ERROR_NO_MORE_ITEMS)
                 {
-                    // end of list, return accumulated list so far
-                    return SubscriptionList;
+                    break;
+                    //PInvokeMethods.EcClose(ecEnumHandle);
+                    //// end of list, return accumulated list so far
+                    //return SubscriptionList;
                 }
                 // need to allcate buffer
                 if (statusMessage == ERROR_INSUFFICIENT_BUFFER)
                 {
+                    // allocate twice the meeded memory (in bytes) 
+                    // helps prevent unmanaged heap corruption - unsure why
+                    // without *2 get heap corruption every few executions.
+                    // with it, rock solid.
+                    Console.WriteLine("Retrying with buffer size:{0}", bufferUsed * 2);
                     // allocate unmanaged buffer and resubmit call.
-                    IntPtr allocPtr = Marshal.AllocHGlobal(bufferSize);
+                    IntPtr allocPtr = Marshal.AllocHGlobal(bufferUsed * 2);
+                    bufferSize = bufferUsed;
                     enumReturnVal = PInvokeMethods.EcEnumNextSubscription(
                         ecEnumHandle,
                         bufferSize,
                         allocPtr,
-                        ref bufferSize);
+                        ref bufferUsed);
 
                     if (enumReturnVal)
                     {
+                        Console.WriteLine("Succeeded with buffer size:{0} : used:{1}", bufferSize, bufferUsed * 2);
                         string subscriptionName = Marshal.PtrToStringAuto(allocPtr);
                         SubscriptionList.Add(subscriptionName);
                     }
