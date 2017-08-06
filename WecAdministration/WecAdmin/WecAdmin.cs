@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using System.Runtime.InteropServices;
 using WecAdmin;
 
+//TODO:DEVNOTE - look at SafeHandle and SafeBuffer instead of IntPtr.
 
 namespace WecAdmin
 {
@@ -191,6 +192,84 @@ namespace WecAdmin
         } // public static DateTime GetEventSourceLastHeartbeat(string SubscriptionName, string EventSourceName)
 
 
+        public static string GetEventSourceStatus(string SubscriptionName, string EventSourceName)
+        {
+            int bufferSize = 0;
+            int bufferUsed = 0;
+            IntPtr outputBuffer = IntPtr.Zero;
+            string eventSourceStatus = string.Empty;
+
+            bool getProp = PInvokeMethods.EcGetSubscriptionRunTimeStatus(
+                SubscriptionName,
+                PInvokeMethods.EC_SUBSCRIPTION_RUNTIME_STATUS_INFO_ID.EcSubscriptionRunTimeStatusActive,
+                EventSourceName, // pass in null for all sources.
+                0, // pass in zero - docs say pass in NULL (is reserved)
+                bufferSize,
+                outputBuffer,
+                ref bufferUsed
+                );
+            int lastError = Marshal.GetLastWin32Error();
+
+            // insufficient buffer, expected, so re-run with proper buffer size
+            if (lastError == ERROR_INSUFFICIENT_BUFFER)
+            {
+                // now know that we need a buffer of correct size.
+                // alloc the required memory in unmanaged space
+                IntPtr allocPtr = IntPtr.Zero;
+                //TODO:ErrorHandling
+                allocPtr = Marshal.AllocHGlobal(bufferUsed);
+
+                // Marshals data from a managed object to an unmanaged block of memory.
+                //Marshal.StructureToPtr(outputBuffer, allocPtr, false);
+                bufferSize = bufferUsed;
+                getProp = PInvokeMethods.EcGetSubscriptionRunTimeStatus(
+                    SubscriptionName,
+                    PInvokeMethods.EC_SUBSCRIPTION_RUNTIME_STATUS_INFO_ID.EcSubscriptionRunTimeStatusActive,
+                    EventSourceName, // pass in null for all sources.
+                    0,
+                    bufferSize,
+                    allocPtr,
+                    ref bufferUsed
+                    );
+
+                if (getProp)
+                {
+                    WecAdmin.EC_VARIANT results = Marshal.PtrToStructure<WecAdmin.EC_VARIANT>(allocPtr);
+                    //// heartbeat (if present) is in FileTimeUTC format.
+                    //Console.WriteLine("variant type: {0}", results.Type);
+                    if (results.Type == (int)PInvokeMethods.EC_VARIANT_TYPE.EcVarTypeUInt32)
+                    {
+                        Int32 statusValue = (Marshal.ReadInt32(allocPtr));
+                        switch (statusValue)
+                        {
+                            case 1:
+                                eventSourceStatus = "Disabled";
+                                break;
+                            case 2:
+                                eventSourceStatus = "Active";
+                                break;
+
+                            case 3:
+                                eventSourceStatus = "Inactive";
+                                break;
+                            case 4:
+                                eventSourceStatus = "Trying";
+                                break;
+                            default:
+                                eventSourceStatus = "InvalidEventSourceStatus";
+                                break;
+                        }
+                    }
+
+                    //Console.WriteLine("\tSource Name: {0}\t Last Heartbeat:{1}", EventSourceName, lastHeartbeat);
+                }
+                Marshal.FreeHGlobal(allocPtr);
+            } // if (lastError == ERROR_INSUFFICIENT_BUFFER)
+
+            return eventSourceStatus;
+        } // public static DateTime GetEventSourceLastHeartbeat(string SubscriptionName, string EventSourceName)
+
+
         public static  List<string> ListSubscriptionRuntimeEventSources(string subscriptionName)
         {
             List<string> eventSources = new List<string>();
@@ -245,7 +324,7 @@ namespace WecAdmin
                     } // for (int i = 0; i < length; i++)
                 } // if (getProp)
                 // free unmanaged memory allocation
-                //Marshal.FreeHGlobal(allocPtr);
+                Marshal.FreeHGlobal(allocPtr);
             } // if (lastError == ERROR_INSUFFICIENT_BUFFER)
 
             return eventSources;
@@ -257,17 +336,135 @@ namespace WecAdmin
         /// </summary>
         /// <param name="subscriptionName"></param>
         /// <returns></returns>
-        private static IntPtr openSubscription (string subscriptionName)
+        private static IntPtr openSubscription (string subscriptionName,
+            Int32 accessMask,
+            Int32 flags)
         {
             IntPtr subHandle = IntPtr.Zero;
 
             subHandle = PInvokeMethods.EcOpenSubscription(
                 subscriptionName,
-                EC_READ_ACCESS,
-                EC_OPEN_EXISTING
-                );
+                accessMask,
+                flags);
 
+            Int32 lastError = Marshal.GetLastWin32Error();
+
+            if (lastError != 0)
+            {
+                throw new Exception(string.Format("Unable to open subscription:{0} Win32 error returned:{1}", subscriptionName, lastError));
+            }
             return subHandle;
         } // private static IntPtr openSubscription (string subscriptionName)
+
+        public static string GetSubscriptionFilter(string subscriptionName)
+        {
+            string eventFilter = string.Empty;
+
+            // open subscription
+            // read subscription event filter property
+            // close subscription
+            IntPtr subscriptionHandle = IntPtr.Zero;
+
+            subscriptionHandle = openSubscription(subscriptionName, (int)EC_READ_ACCESS, (int)EC_OPEN_EXISTING);
+
+
+            if (subscriptionHandle == IntPtr.Zero)
+            {
+                // throw here - subscription doesn't exist.
+                Console.WriteLine("Subscription does not exist: {0}", subscriptionName);
+                return string.Empty;
+            }
+
+            IntPtr outputBuffer = IntPtr.Zero;
+            Int32 bufferSize = 0;
+            Int32 bufferUsed = 0;
+            // this will always fail
+            bool getSubProperty = PInvokeMethods.EcGetSubscriptionProperty(
+                subscriptionHandle,
+                PInvokeMethods.EC_SUBSCRIPTION_PROPERTY_ID.EcSubscriptionQuery,
+                0,
+                bufferSize,
+                outputBuffer,
+                ref bufferUsed);
+
+            int lastError = Marshal.GetLastWin32Error();
+
+            // insufficient buffer, expected, so re-run with proper buffer size
+            if (lastError == ERROR_INSUFFICIENT_BUFFER)
+            {
+                bufferSize = bufferUsed;
+                Console.WriteLine("Retrying with buffer size:{0}", bufferUsed);
+                // now know that we need a buffer of correct size.
+                // alloc the required memory in unmanaged space
+                IntPtr allocPtr = Marshal.AllocHGlobal(bufferUsed);
+                // Marshals data from a managed object to an unmanaged block of memory.
+                //Marshal.StructureToPtr(outputBuffer, allocPtr, false);
+                bufferSize = bufferUsed;
+                getSubProperty = PInvokeMethods.EcGetSubscriptionProperty(
+                    subscriptionHandle,
+                    PInvokeMethods.EC_SUBSCRIPTION_PROPERTY_ID.EcSubscriptionQuery,
+                    0,
+                    bufferSize,
+                    allocPtr,
+                    ref bufferUsed);
+
+                if (getSubProperty)
+                {
+                    // convert into structure
+                    WecAdmin.EC_VARIANT results = Marshal.PtrToStructure<WecAdmin.EC_VARIANT>(allocPtr);
+                    // event Filter is a string type, read that value.
+                    if (results.Type == (int)PInvokeMethods.EC_VARIANT_TYPE.EcVarTypeString)
+                    {
+                        eventFilter = Marshal.PtrToStringAuto(results.StringValue);
+                    }
+                } // if (getProp)
+                // free unmanaged memory allocation
+                Marshal.FreeHGlobal(allocPtr);
+            } // if (lastError == ERROR_INSUFFICIENT_BUFFER)
+            return eventFilter;
+        } // public static string GetSubscriptionFilter(string subscriptionName)
+
+        public static bool SetSubscriptionFilter(string SubscriptionName, string EventFilter)
+        {
+            bool returnVal = false;
+            // open handle to subscription.
+            IntPtr subHandle = openSubscription(SubscriptionName, (int)EC_WRITE_ACCESS, (int)EC_OPEN_EXISTING);
+
+            // allocate un-managed memory for the string and get the pointer.
+
+            EC_VARIANT queryUpdate = new EC_VARIANT();
+            queryUpdate.Type = (int)PInvokeMethods.EC_VARIANT_TYPE.EcVarTypeString;
+            // marshal string to unmanaged memory
+            IntPtr filterPtr = Marshal.StringToHGlobalUni(EventFilter);
+
+            queryUpdate.StringValue = filterPtr;
+
+            int ecVariantSize = Marshal.SizeOf(queryUpdate);
+
+            IntPtr ecVariantPtr = Marshal.AllocHGlobal(ecVariantSize);
+
+            Marshal.StructureToPtr(queryUpdate, ecVariantPtr, true);
+
+            returnVal = PInvokeMethods.EcSetSubscriptionProperty(
+                subHandle,
+                (Int32)PInvokeMethods.EC_SUBSCRIPTION_PROPERTY_ID.EcSubscriptionQuery,
+                0,
+                ecVariantPtr);
+
+            Int32 lastError = Marshal.GetLastWin32Error();
+
+            // close the handle to the subscription.
+            PInvokeMethods.EcClose(subHandle);
+
+            Console.WriteLine("update satus:{0} last error:{1}", returnVal, lastError);
+
+            // free structure memory
+            Marshal.FreeHGlobal(ecVariantPtr);
+            // free event filter unmanaged memory
+            Marshal.FreeHGlobal(filterPtr);
+
+            return returnVal;
+        } // public static bool SetSubscriptionFilter(string SubscriptionName, string EventFilter)
+
     } // public class EventCollectorAdmin
 } // namespace WecAdmin
