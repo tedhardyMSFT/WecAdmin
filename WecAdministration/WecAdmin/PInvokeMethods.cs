@@ -429,7 +429,7 @@ namespace WecAdmin
             /// </summary>
             EcVarTypeDateTime = 3,
             /// <summary>
-            /// A string value.
+            /// A null-terminated Unicode string
             /// </summary>
             EcVarTypeString = 4,
             /// <summary>
@@ -551,5 +551,15 @@ namespace WecAdmin
             IntPtr SubscriptionNameBuffer,
             ref Int32 SubscriptionNameBufferUsed
             );
+
+
+        [DllImport("wecapi.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+        public static extern bool EcSetSubscriptionProperty(
+            IntPtr Subscription,
+            Int32 PropertyId,
+            Int32 Flags,
+            IntPtr PropertyValue
+            );
+
     } // class PInvokeMethods
 } // namespace WecAdmin
