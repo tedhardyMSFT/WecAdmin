@@ -13,6 +13,7 @@ namespace WecAdministration
     // TODO:TOTAL:Feature Backlog:
     // DONE: Enumerate subscriptions (unfiltered)
     // DONE: enumerate subscription event sources (unfiltered)
+    // DONE: enumearte subscription event sources status.
     // TODO: (optional flag for active and/or type: push/pull)
     // TODO: Get subscription parameter method (dest channel, heartbeat interval, account)
     //      One function that uses an enum for the property type.
@@ -43,6 +44,18 @@ namespace WecAdministration
 
             // hardcoded to work with top swubscriptionName.
             string subName = subs[0];
+            Console.WriteLine("Getting event filter");
+            string currentEventFilter = WecAdmin.EventCollectorAdmin.GetSubscriptionFilter(subName);
+            Console.WriteLine("Filter:{0}", currentEventFilter);
+
+            string NewEventFilter = "<QueryList><Query Id='0' Path='System'><Select Path='System'>*[System[(EventID=7045)]]</Select></Query></QueryList>";
+            Console.WriteLine("Updating filter.");
+            bool filterUpdate = WecAdmin.EventCollectorAdmin.SetSubscriptionFilter(subName, NewEventFilter);
+            Console.WriteLine("Update status:{0}", filterUpdate);
+
+            currentEventFilter = WecAdmin.EventCollectorAdmin.GetSubscriptionFilter(subName);
+            Console.WriteLine("New Filter:{0}", currentEventFilter);
+
             Console.WriteLine("Getting sources for sub:{0}", subName);
             List<string> subSources = WecAdmin.EventCollectorAdmin.ListSubscriptionRuntimeEventSources(subName);
 
@@ -50,7 +63,9 @@ namespace WecAdministration
             for(int i = 0; i < subSources.Count; i++)
             {
                 DateTime lastHeartbeat = WecAdmin.EventCollectorAdmin.GetEventSourceLastHeartbeat(subName, subSources[i]);
-                Console.WriteLine("\tSource:{0}\tHeartbeat:{1}", subSources[i], lastHeartbeat.ToString("o"));
+                string sourceStatus = WecAdmin.EventCollectorAdmin.GetEventSourceStatus(subName, subSources[i]);
+                Console.WriteLine("\tSource:{0}\tHeartbeat:{1}\tStatus:{2}", subSources[i], lastHeartbeat.ToString("o"), sourceStatus);
+                
             }
             Console.WriteLine("Done getting hearbeat times");
             Console.WriteLine("Hit Enter to exit.");
