@@ -511,74 +511,82 @@ namespace WecAdministration
             //Lowfi-collection
             //SnitchDirectToCosmos
             // hardcoded to work with top comment.
-            string subName = "SnitchDirectToCosmos"; // subs[0];
+            string subName = subs[0];
             Console.WriteLine("Getting sources for sub:{0}", subName);
             List<string> subSources = WecAdmin.EventCollectorAdmin.ListSubscriptionRuntimeEventSources(subName);
 
-            IntPtr subHandle = IntPtr.Zero;
-            IntPtr outputBuffer = IntPtr.Zero;
-
-            Int32 bufferSize = 0;
-            Int32 bufferUsed = 0;
-            
-            // at this point have a list of sources for a subscription
-            // get a property for each.
-            Console.WriteLine("Getting heartbeat time for sources");
-            for (int srcCount = 0; srcCount < subSources.Count; srcCount++)
+            Console.WriteLine("[WecAdmin]:Getting heartbeat times");
+            for(int i = 0; i < subSources.Count; i++)
             {
-                string sourceName = subSources[srcCount];
-                bufferSize = 0;
-                outputBuffer = IntPtr.Zero;
+                DateTime lastHeartbeat = WecAdmin.EventCollectorAdmin.GetEventSourceLastHeartbeat(subName, subSources[i]);
+                Console.WriteLine("\tSource:{0}\tHeartbeat:{1}", subSources[i], lastHeartbeat.ToString("o"));
+            }
+            Console.WriteLine("Done getting hearbeat times");
 
-                bool getProp = EcGetSubscriptionRunTimeStatus(
-                    subName,
-                    EC_SUBSCRIPTION_RUNTIME_STATUS_INFO_ID.EcSubscriptionRunTimeStatusLastHeartbeatTime,
-                    sourceName, // pass in null for all sources.
-                    0, // pass in zero - docs say pass in NULL (is reserved)
-                    bufferSize,
-                    outputBuffer,
-                    ref bufferUsed
-                    );
-                int lastError = Marshal.GetLastWin32Error();
+            //IntPtr subHandle = IntPtr.Zero;
+            //IntPtr outputBuffer = IntPtr.Zero;
 
-                // insufficient buffer, expected, so re-run with proper buffer size
-                if (lastError == ERROR_INSUFFICIENT_BUFFER)
-                {
-                    // now know that we need a buffer of correct size.
-                    // alloc the required memory in unmanaged space
-                    IntPtr allocPtr = IntPtr.Zero;
-                    //TODO:ErrorHandling
-                    allocPtr = Marshal.AllocHGlobal(bufferUsed);
+            //Int32 bufferSize = 0;
+            //Int32 bufferUsed = 0;
+            
+            //// at this point have a list of sources for a subscription
+            //// get a property for each.
+            //Console.WriteLine("Getting heartbeat time for sources");
+            //for (int srcCount = 0; srcCount < subSources.Count; srcCount++)
+            //{
+            //    string sourceName = subSources[srcCount];
+            //    bufferSize = 0;
+            //    outputBuffer = IntPtr.Zero;
 
-                    // Marshals data from a managed object to an unmanaged block of memory.
-                    //Marshal.StructureToPtr(outputBuffer, allocPtr, false);
-                    bufferSize = bufferUsed;
-                    getProp = EcGetSubscriptionRunTimeStatus(
-                        subName,
-                        EC_SUBSCRIPTION_RUNTIME_STATUS_INFO_ID.EcSubscriptionRunTimeStatusLastHeartbeatTime,
-                        sourceName, // pass in null for all sources.
-                        0,
-                        bufferSize,
-                        allocPtr,
-                        ref bufferUsed
-                        );
+            //    bool getProp = EcGetSubscriptionRunTimeStatus(
+            //        subName,
+            //        EC_SUBSCRIPTION_RUNTIME_STATUS_INFO_ID.EcSubscriptionRunTimeStatusLastHeartbeatTime,
+            //        sourceName, // pass in null for all sources.
+            //        0, // pass in zero - docs say pass in NULL (is reserved)
+            //        bufferSize,
+            //        outputBuffer,
+            //        ref bufferUsed
+            //        );
+            //    int lastError = Marshal.GetLastWin32Error();
 
-                    if (getProp)
-                    {
-                        DateTime heartbeat = DateTime.MinValue;
-                        WecAdmin.EC_VARIANT results = Marshal.PtrToStructure<WecAdmin.EC_VARIANT>(allocPtr);
-                        //// heartbeat (if present) is in FileTimeUTC format.
-                        Console.WriteLine("variant type: {0}", results.Type);
-                        if (results.Type == (int)EC_VARIANT_TYPE.EcVarTypeDateTime)
-                        {
-                            heartbeat = DateTime.FromFileTimeUtc(Marshal.ReadInt64(allocPtr));
-                        }
+            //    // insufficient buffer, expected, so re-run with proper buffer size
+            //    if (lastError == ERROR_INSUFFICIENT_BUFFER)
+            //    {
+            //        // now know that we need a buffer of correct size.
+            //        // alloc the required memory in unmanaged space
+            //        IntPtr allocPtr = IntPtr.Zero;
+            //        //TODO:ErrorHandling
+            //        allocPtr = Marshal.AllocHGlobal(bufferUsed);
 
-                        Console.WriteLine("\tSource Name: {0}\t Last Heartbeat:{1}", sourceName, heartbeat);
-                    }
-                    Marshal.FreeHGlobal(allocPtr);
-                } // if (lastError == ERROR_INSUFFICIENT_BUFFER)
-            } // for (int srcCount = 0; srcCount < subSources.Count; srcCount++)
+            //        // Marshals data from a managed object to an unmanaged block of memory.
+            //        //Marshal.StructureToPtr(outputBuffer, allocPtr, false);
+            //        bufferSize = bufferUsed;
+            //        getProp = EcGetSubscriptionRunTimeStatus(
+            //            subName,
+            //            EC_SUBSCRIPTION_RUNTIME_STATUS_INFO_ID.EcSubscriptionRunTimeStatusLastHeartbeatTime,
+            //            sourceName, // pass in null for all sources.
+            //            0,
+            //            bufferSize,
+            //            allocPtr,
+            //            ref bufferUsed
+            //            );
+
+            //        if (getProp)
+            //        {
+            //            DateTime heartbeat = DateTime.MinValue;
+            //            WecAdmin.EC_VARIANT results = Marshal.PtrToStructure<WecAdmin.EC_VARIANT>(allocPtr);
+            //            //// heartbeat (if present) is in FileTimeUTC format.
+            //            Console.WriteLine("variant type: {0}", results.Type);
+            //            if (results.Type == (int)EC_VARIANT_TYPE.EcVarTypeDateTime)
+            //            {
+            //                heartbeat = DateTime.FromFileTimeUtc(Marshal.ReadInt64(allocPtr));
+            //            }
+
+            //            Console.WriteLine("\tSource Name: {0}\t Last Heartbeat:{1}", sourceName, heartbeat);
+            //        }
+            //        Marshal.FreeHGlobal(allocPtr);
+            //    } // if (lastError == ERROR_INSUFFICIENT_BUFFER)
+            //} // for (int srcCount = 0; srcCount < subSources.Count; srcCount++)
             Console.WriteLine("Hit Enter to exit.");
             //Console.ReadLine();
         } // static void Main(string[] args)
