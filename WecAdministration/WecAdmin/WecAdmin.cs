@@ -176,13 +176,13 @@ namespace WecAdmin
                 {
                     WecAdmin.EC_VARIANT results = Marshal.PtrToStructure<WecAdmin.EC_VARIANT>(allocPtr);
                     //// heartbeat (if present) is in FileTimeUTC format.
-                    Console.WriteLine("variant type: {0}", results.Type);
+                    //Console.WriteLine("variant type: {0}", results.Type);
                     if (results.Type == (int)PInvokeMethods.EC_VARIANT_TYPE.EcVarTypeDateTime)
                     {
                         lastHeartbeat = DateTime.FromFileTimeUtc(Marshal.ReadInt64(allocPtr));
                     }
 
-                    Console.WriteLine("\tSource Name: {0}\t Last Heartbeat:{1}", EventSourceName, lastHeartbeat);
+                    //Console.WriteLine("\tSource Name: {0}\t Last Heartbeat:{1}", EventSourceName, lastHeartbeat);
                 }
                 Marshal.FreeHGlobal(allocPtr);
             } // if (lastError == ERROR_INSUFFICIENT_BUFFER)
