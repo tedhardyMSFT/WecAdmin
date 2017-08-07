@@ -52,7 +52,9 @@ namespace WecAdministration
             Console.WriteLine("Updating filter.");
             bool filterUpdate = WecAdmin.EventCollectorAdmin.SetSubscriptionFilter(subName, NewEventFilter);
             Console.WriteLine("Update status:{0}", filterUpdate);
-
+            //Console.WriteLine("Updating port.");
+            //bool portUpdate = WecAdmin.EventCollectorAdmin.SetSubscriptionPort(subName, 9999);
+            //Console.WriteLine("Update status:{0}", portUpdate);
             currentEventFilter = WecAdmin.EventCollectorAdmin.GetSubscriptionFilter(subName);
             Console.WriteLine("New Filter:{0}", currentEventFilter);
 
