@@ -420,30 +420,83 @@ namespace WecAdmin
                 } // if (getProp)
                 // free unmanaged memory allocation
                 Marshal.FreeHGlobal(allocPtr);
+
+                // close the handle to the subscription.
+                PInvokeMethods.EcClose(subscriptionHandle);
             } // if (lastError == ERROR_INSUFFICIENT_BUFFER)
             return eventFilter;
         } // public static string GetSubscriptionFilter(string subscriptionName)
 
+        /// <summary>
+        /// Updates the event query filter for the supplied subscription.
+        /// </summary>
+        /// <param name="SubscriptionName">Name of the subscription to update</param>
+        /// <param name="EventFilter">new event query string</param>
+        /// <returns>True if successful</returns>
         public static bool SetSubscriptionFilter(string SubscriptionName, string EventFilter)
         {
             bool returnVal = false;
+            // open handle to subscription with flags
+            IntPtr subHandle = openSubscription(SubscriptionName, (int)(EC_READ_ACCESS | EC_WRITE_ACCESS), (int)EC_OPEN_EXISTING);
+            // allocate un-managed memory for the string and get the pointer.
+            EC_VARIANT queryUpdate = new EC_VARIANT();
+            // set the type in EC_VARIANT
+            queryUpdate.Type = (uint)PInvokeMethods.EC_VARIANT_TYPE.EcVarTypeString;
+            // marshal string to unmanaged memory
+            IntPtr filterPtr = Marshal.StringToHGlobalAuto(EventFilter);
+            queryUpdate.StringValue = filterPtr;
+            // get struct size and allocate un-managed memory
+            int ecVariantSize = Marshal.SizeOf(queryUpdate);
+            IntPtr ecVariantPtr = Marshal.AllocHGlobal(ecVariantSize);
+            // marshal the pointer into un-managed memory
+            Marshal.StructureToPtr<EC_VARIANT>(queryUpdate, ecVariantPtr, true);
+
+            // make the Win32 call
+            returnVal = PInvokeMethods.EcSetSubscriptionProperty(
+                subHandle,
+                (int)PInvokeMethods.EC_SUBSCRIPTION_PROPERTY_ID.EcSubscriptionQuery,
+                0, // Flag is always null, per docs
+                ecVariantPtr);
+
+            int lastError = Marshal.GetLastWin32Error();
+            Console.WriteLine("update satus:{0} last error:{1}", returnVal, lastError);
+            // close the handle to the subscription.
+            PInvokeMethods.EcClose(subHandle);
+            // free structure memory
+            Marshal.FreeHGlobal(ecVariantPtr);
+            // free event filter unmanaged memory
+            Marshal.FreeHGlobal(filterPtr);
+            return returnVal;
+        } // public static bool SetSubscriptionFilter(string SubscriptionName, string EventFilter)
+
+
+
+        public static bool SetSubscriptionPort(string SubscriptionName, UInt32 PortNumber)
+        {
+            bool returnVal = false;
             // open handle to subscription.
-            IntPtr subHandle = openSubscription(SubscriptionName, (int)EC_WRITE_ACCESS, (int)EC_OPEN_EXISTING);
+            IntPtr subHandle = openSubscription(SubscriptionName, (int)(EC_READ_ACCESS | EC_WRITE_ACCESS), (int)EC_OPEN_EXISTING);
 
             // allocate un-managed memory for the string and get the pointer.
 
-            EC_VARIANT queryUpdate = new EC_VARIANT();
-            queryUpdate.Type = (int)PInvokeMethods.EC_VARIANT_TYPE.EcVarTypeString;
+            EC_VARIANT portUpdate = new EC_VARIANT();
+            portUpdate.Type = (uint)PInvokeMethods.EC_VARIANT_TYPE.EcVarTypeUInt32;
             // marshal string to unmanaged memory
-            IntPtr filterPtr = Marshal.StringToHGlobalUni(EventFilter);
+            IntPtr portPtr = IntPtr.Zero;
 
-            queryUpdate.StringValue = filterPtr;
+            portPtr =  Marshal.AllocHGlobal(sizeof(UInt32));
 
-            int ecVariantSize = Marshal.SizeOf(queryUpdate);
+            Marshal.WriteInt32(portPtr, (int)PortNumber);
 
-            IntPtr ecVariantPtr = Marshal.AllocHGlobal(ecVariantSize);
+            portUpdate.UInt32Val = portPtr;
 
-            Marshal.StructureToPtr(queryUpdate, ecVariantPtr, true);
+            int ecVariantSize = Marshal.SizeOf(portUpdate);
+
+            IntPtr ecVariantPtr = Marshal.AllocHGlobal(Marshal.SizeOf(portUpdate));
+
+
+
+            Marshal.StructureToPtr(portUpdate, ecVariantPtr, true);
 
             returnVal = PInvokeMethods.EcSetSubscriptionProperty(
                 subHandle,
@@ -460,9 +513,7 @@ namespace WecAdmin
 
             // free structure memory
             Marshal.FreeHGlobal(ecVariantPtr);
-            // free event filter unmanaged memory
-            Marshal.FreeHGlobal(filterPtr);
-
+            
             return returnVal;
         } // public static bool SetSubscriptionFilter(string SubscriptionName, string EventFilter)
 
