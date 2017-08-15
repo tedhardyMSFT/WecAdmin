@@ -561,5 +561,17 @@ namespace WecAdmin
             IntPtr PropertyValue
             );
 
+        /// <summary>
+        /// The EcSaveSubscription function saves subscription configuration information. This function should be called whenever new values are added or updated to the subscription by the EcSetSubscriptionProperty method. If the subscription is enabled, the subscription will be activated when it is saved.
+        /// </summary>
+        /// <param name="Subscription">The handle to the subscription object.</param>
+        /// <param name="Flags">Reserved. Must be NULL.</param>
+        /// <returns>True if successful</returns>
+        [DllImport("wecapi.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+        public static extern bool EcSaveSubscription(
+            IntPtr Subscription,
+            Int32 Flags
+            );
+
     } // class PInvokeMethods
 } // namespace WecAdmin
