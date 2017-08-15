@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -98,13 +99,10 @@ namespace WecAdmin
                 // need to allcate buffer
                 if (statusMessage == ERROR_INSUFFICIENT_BUFFER)
                 {
-                    // allocate twice the meeded memory (in bytes) 
-                    // helps prevent unmanaged heap corruption - unsure why
-                    // without *2 get heap corruption every few executions.
-                    // with it, rock solid.
-                    Console.WriteLine("Retrying with buffer size:{0}", bufferUsed * 2);
+                    // this increases the buffer size since the memory needed is for a unicode string.
+                    Console.WriteLine("Retrying with buffer size:{0}", bufferUsed * sizeof(char));
                     // allocate unmanaged buffer and resubmit call.
-                    IntPtr allocPtr = Marshal.AllocHGlobal(bufferUsed * 2);
+                    IntPtr allocPtr = Marshal.AllocHGlobal(bufferUsed * sizeof(char));
                     bufferSize = bufferUsed;
                     enumReturnVal = PInvokeMethods.EcEnumNextSubscription(
                         ecEnumHandle,
@@ -435,6 +433,7 @@ namespace WecAdmin
         /// <returns>True if successful</returns>
         public static bool SetSubscriptionFilter(string SubscriptionName, string EventFilter)
         {
+            string errorMessage = string.Empty;
             bool returnVal = false;
             // open handle to subscription with flags
             IntPtr subHandle = openSubscription(SubscriptionName, (int)(EC_READ_ACCESS | EC_WRITE_ACCESS), (int)EC_OPEN_EXISTING);
@@ -459,7 +458,16 @@ namespace WecAdmin
                 ecVariantPtr);
 
             int lastError = Marshal.GetLastWin32Error();
-            Console.WriteLine("update satus:{0} last error:{1}", returnVal, lastError);
+            errorMessage = new Win32Exception(Marshal.GetLastWin32Error()).Message;
+            Console.WriteLine("update satus:{0} last error:{1} message:{2}", returnVal, lastError, errorMessage);
+            Console.WriteLine("Saving subscription");
+            returnVal = PInvokeMethods.EcSaveSubscription(subHandle, 0);
+            lastError = Marshal.GetLastWin32Error();
+            errorMessage = new Win32Exception(Marshal.GetLastWin32Error()).Message;
+            Console.WriteLine("update satus:{0} last error:{1} message:{2}", returnVal, lastError, errorMessage);
+
+
+
             // close the handle to the subscription.
             PInvokeMethods.EcClose(subHandle);
             // free structure memory
