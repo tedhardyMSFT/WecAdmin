@@ -27,14 +27,10 @@ namespace WecAdministration
     {
         static void Main(string[] args)
         {
-            // commented to see if initial call to enumerate subscriptions is causing heap corruption.
-            // 2016-11-26:THIS DOES SEEM TO BE THE CASE - HEAP CORRUPTION NOT OBSERVED WHEN COMMENTED OUT!
-            // things to check: verify signatures/structure definitions.
-            // does the wecsvc tolarate having multiple handles open to it from same process?
             Console.WriteLine("enumerating all subscriptions.");
             List<string> subs = WecAdmin.EventCollectorAdmin.EnumerateSubscriptions();
             Console.WriteLine("done!");
-
+            string subName = string.Empty;
             Console.WriteLine("Local subscriptions");
             for (int j = 0; j < subs.Count; j++)
             {
@@ -42,8 +38,13 @@ namespace WecAdministration
             }
             Console.WriteLine("end subscriptions");
 
+            if(subs.Count == 0 )
+            {
+                Console.WriteLine("no subscriptions. Exiting");
+                Environment.Exit(1);
+            }
             // hardcoded to work with top swubscriptionName.
-            string subName = subs[0];
+            subName = subs[0];
             Console.WriteLine("Getting event filter");
             string currentEventFilter = WecAdmin.EventCollectorAdmin.GetSubscriptionFilter(subName);
             Console.WriteLine("Filter:{0}", currentEventFilter);
@@ -71,7 +72,7 @@ namespace WecAdministration
             }
             Console.WriteLine("Done getting hearbeat times");
             Console.WriteLine("Hit Enter to exit.");
-            //Console.ReadLine();
+            Console.ReadLine();
         } // static void Main(string[] args)
     } // class Program
 }
