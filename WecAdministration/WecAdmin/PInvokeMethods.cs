@@ -472,19 +472,6 @@ namespace WecAdmin
         /// </summary>
         public const Int32 EC_VARIANT_TYPE_ARRAY = 0x80;
 
-        /// <summary>
-        /// The EcOpenSubscription function is used to open an existing subscription or create a new subscription according to the flag value specified.
-        /// </summary>
-        /// <param name="SubscriptionName">Specifies the name of the subscription. The value provided for this parameter should be unique within the computer's scope.</param>
-        /// <param name="AccessMask">An access mask that specifies the desired access rights to the subscription. Use the EC_READ_ACCESS or EC_WRITE_ACCESS constants to specify the access rights. The function fails if the security descriptor of the subscription does not permit the requested access for the calling process.</param>
-        /// <param name="Flags">A value specifying whether a new or existing subscription will be opened. Use the EC_CREATE_NEW, EC_OPEN_ALWAYS, or EC_OPEN_EXISTING constants.</param>
-        /// <returns>If the function succeeds, it returns an handle (EC_HANDLE) to a new subscription object. Returns NULL otherwise, in which case use the GetLastError function to obtain the error code.</returns>
-        [DllImport("wecapi.dll", SetLastError = true, CharSet = CharSet.Auto)]
-        public static extern IntPtr EcOpenSubscription(
-             string SubscriptionName,
-             Int32 AccessMask,
-             Int32 Flags
-            );
 
         /// <summary>
         /// The EcClose function closes a handle received from other Event Collector functions. Any handle returned by an event collector management API call must be closed using this call when the user is finished with the handle. The handle becomes invalid when this function is successfully called.
@@ -495,6 +482,59 @@ namespace WecAdmin
         public static extern bool EcClose(
             IntPtr Object
             );
+
+
+        /// <summary>
+        /// The EcDeleteSubscription function deletes an existing subscription that is specified by the SubscriptionName parameter. The function fails if the security descriptor of the subscription does not permit delete access for the calling process. If the subscription is active at the moment this API is called, then the subscription is deactivated.
+        /// </summary>
+        /// <param name="SubscriptionName">The subscription to be deleted.</param>
+        /// <param name="Flags">Reserved, must be 0.</param>
+        /// <returns>TRUE The function was successful. FALSE The function failed.Use the GetLastError function to obtain the error code.</returns>
+        [DllImport("wecapi.dll", SetLastError = true, CharSet = CharSet.Auto)]
+        public static extern bool EcDeleteSubscription(
+            IntPtr SubscriptionName,
+            Int32 Flags
+            );
+
+        /// <summary>
+        /// The EcEnumNextSubscription function continues the enumeration of the subscriptions registered on the local machine.
+        /// </summary>
+        /// <param name="SubscriptionEnum">The handle to the enumerator object that is returned from the EcOpenSubscriptionEnum function.</param>
+        /// <param name="SubscriptionNameBufferSize">The size of the user-supplied buffer (in chars) to store the subscription name.</param>
+        /// <param name="SubscriptionNameBuffer">The user-supplied buffer to store the subscription name.</param>
+        /// <param name="SubscriptionNameBufferUsed">The size of the user-supplied buffer that is used by the function on successful return, or the size that is necessary to store the subscription name when the function fails with ERROR_INSUFFICIENT_BUFFER.</param>
+        /// <returns>True if successful, False if the function failed. Use the GetLastError function to obtain the error code.</returns>
+        [DllImport("wecapi.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+        public static extern bool EcEnumNextSubscription(
+            IntPtr SubscriptionEnum,
+            Int32 SubscriptionNameBufferSize,
+            IntPtr SubscriptionNameBuffer,
+            ref Int32 SubscriptionNameBufferUsed
+            );
+
+        /// <summary>
+        /// The EcGetObjectArrayProperty function retrieves property values from a handle to an array of event source properties. The array contains property values for the event sources of a subscription.
+        /// </summary>
+        /// <param name="ObjectArray">A handle to an array of properties for the event sources for a subscription. An array handle that is returned by the EcGetSubscriptionProperty method when the EcSubscriptionEventSources value is passed into the PropertyId parameter.</param>
+        /// <param name="PropertyId">The property identifier for properties in the array. Specify a value from the EC_SUBSCRIPTION_PROPERTY_ID enumeration. Get the Address, Enabled, UserName, and Password properties in the array by specifying the EcSubscriptionEventSourceAddress, EcSubscriptionEventSourceEnabled, EcSubscriptionEventSourceUserName, or EcSubscriptionEventSourcePassword values.</param>
+        /// <param name="ArrayIndex">The index of the array that specifies which event source to get the property from.</param>
+        /// <param name="Flags">Reserved. Must be 0.</param>
+        /// <param name="PropertyValueBufferSize">The size of the buffer that contains the value of the property. The size must be at least the size of an EC_VARIANT value.</param>
+        /// <param name="PropertyValueBuffer">The user-supplied buffer to store property value into.</param>
+        /// <param name="PropertyValueBufferUsed">The size of the user-supplied buffer that is used by the function on successful return, or the size that is necessary to store the property value when the</param>
+        /// <returns></returns>
+        [DllImport("wecapi.dll", SetLastError = true, CharSet = CharSet.Auto)]
+        public static extern bool EcGetObjectArrayProperty(
+            IntPtr ObjectArray,
+            EC_SUBSCRIPTION_PROPERTY_ID PropertyId,
+            Int32 ArrayIndex,
+            Int32 Flags,
+            Int32 PropertyValueBufferSize,
+            IntPtr PropertyValueBuffer,
+            ref Int32 PropertyValueBufferUsed
+            );
+
+        ///TODO:Implement Signature: EcGetObjectArraySize
 
         /// <summary>
         /// The EcGetSubscriptionProperty function retrieves a specific property value from a subscription object. The subscription object is specified by the handle passed into the Subscription parameter.
@@ -538,6 +578,9 @@ namespace WecAdmin
             ref Int32 PropertyValueBufferUsed
             );
 
+        ///TODO:Implement Signature: EcInsertObjectArrayElement  
+
+        ///TODO:Implement Signature: 
         /// <summary>
         /// The EcOpenSubscriptionEnum function is creates a subscription enumerator to enumerate all registered subscriptions on the local machine.
         /// </summary>
@@ -549,19 +592,47 @@ namespace WecAdmin
             );
 
         /// <summary>
-        /// The EcEnumNextSubscription function continues the enumeration of the subscriptions registered on the local machine.
+        /// The EcOpenSubscription function is used to open an existing subscription or create a new subscription according to the flag value specified.
         /// </summary>
-        /// <param name="SubscriptionEnum">The handle to the enumerator object that is returned from the EcOpenSubscriptionEnum function.</param>
-        /// <param name="SubscriptionNameBufferSize">The size of the user-supplied buffer (in chars) to store the subscription name.</param>
-        /// <param name="SubscriptionNameBuffer">The user-supplied buffer to store the subscription name.</param>
-        /// <param name="SubscriptionNameBufferUsed">The size of the user-supplied buffer that is used by the function on successful return, or the size that is necessary to store the subscription name when the function fails with ERROR_INSUFFICIENT_BUFFER.</param>
-        /// <returns>True if successful, False if the function failed. Use the GetLastError function to obtain the error code.</returns>
+        /// <param name="SubscriptionName">Specifies the name of the subscription. The value provided for this parameter should be unique within the computer's scope.</param>
+        /// <param name="AccessMask">An access mask that specifies the desired access rights to the subscription. Use the EC_READ_ACCESS or EC_WRITE_ACCESS constants to specify the access rights. The function fails if the security descriptor of the subscription does not permit the requested access for the calling process.</param>
+        /// <param name="Flags">A value specifying whether a new or existing subscription will be opened. Use the EC_CREATE_NEW, EC_OPEN_ALWAYS, or EC_OPEN_EXISTING constants.</param>
+        /// <returns>If the function succeeds, it returns an handle (EC_HANDLE) to a new subscription object. Returns NULL otherwise, in which case use the GetLastError function to obtain the error code.</returns>
+        [DllImport("wecapi.dll", SetLastError = true, CharSet = CharSet.Auto)]
+        public static extern IntPtr EcOpenSubscription(
+             string SubscriptionName,
+             Int32 AccessMask,
+             Int32 Flags
+            );
+
+        /// <summary>
+        /// The EcSaveSubscription function saves subscription configuration information. This function should be called whenever new values are added or updated to the subscription by the EcSetSubscriptionProperty method. If the subscription is enabled, the subscription will be activated when it is saved.
+        /// </summary>
+        /// <param name="Subscription">The handle to the subscription object.</param>
+        /// <param name="Flags">Reserved. Must be 0.</param>
+        /// <returns>True if successful</returns>
         [DllImport("wecapi.dll", SetLastError = true, CharSet = CharSet.Unicode)]
-        public static extern bool EcEnumNextSubscription(
-            IntPtr SubscriptionEnum,
-            Int32 SubscriptionNameBufferSize,
-            IntPtr SubscriptionNameBuffer,
-            ref Int32 SubscriptionNameBufferUsed
+        public static extern bool EcSaveSubscription(
+            IntPtr Subscription,
+            Int32 Flags
+            );
+
+        /// <summary>
+        /// The EcSetObjectArrayProperty function sets a property value in an array of property values for the event sources of a subscription.
+        /// </summary>
+        /// <param name="ObjectArray">A handle to the array that contains the property value to set. The array contains property values for the event sources of a subscription. The array handle is returned by the EcGetSubscriptionProperty method when the EcSubscriptionEventSources value is passed into the Subscription parameter.</param>
+        /// <param name="PropertyId">An identifier that specifies which property to set. Specify a value from the EC_SUBSCRIPTION_PROPERTY_ID enumeration. Set the Address, Enabled, UserName, and Password properties in the array by specifying the EcSubscriptionEventSourceAddress, EcSubscriptionEventSourceEnabled, EcSubscriptionEventSourceUserName, or EcSubscriptionEventSourcePassword values.</param>
+        /// <param name="ArrayIndex">The index of the object in the array to set a property value on.</param>
+        /// <param name="Flags">Reserved. Must be 0.</param>
+        /// <param name="PropertyValue">The value of the property.</param>
+        /// <returns>TRUE The function was successful. FALSE The function failed.Use the GetLastError function to obtain the error code.</returns>
+        [DllImport("wecapi.dll", SetLastError = true, CharSet = CharSet.Auto)]
+        public static extern bool EcSetObjectArrayProperty(
+            IntPtr ObjectArray,
+            EC_SUBSCRIPTION_PROPERTY_ID PropertyId,
+            Int32 ArrayIndex,
+            Int32 Flags,
+            IntPtr PropertyValue
             );
 
         /// <summary>
@@ -580,16 +651,14 @@ namespace WecAdmin
             IntPtr PropertyValue
             );
 
-        /// <summary>
-        /// The EcSaveSubscription function saves subscription configuration information. This function should be called whenever new values are added or updated to the subscription by the EcSetSubscriptionProperty method. If the subscription is enabled, the subscription will be activated when it is saved.
-        /// </summary>
-        /// <param name="Subscription">The handle to the subscription object.</param>
-        /// <param name="Flags">Reserved. Must be NULL.</param>
-        /// <returns>True if successful</returns>
-        [DllImport("wecapi.dll", SetLastError = true, CharSet = CharSet.Unicode)]
-        public static extern bool EcSaveSubscription(
-            IntPtr Subscription,
-            Int32 Flags
-            );
+
+
+
+        ///TODO:Implement Signature: EcRemoveObjectArrayElement 
+
+        ///TODO:Implement Signature: EcRetrySubscription 
+
+
+
     } // class PInvokeMethods
 } // namespace WecAdmin
