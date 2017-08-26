@@ -472,6 +472,13 @@ namespace WecAdmin
         /// </summary>
         public const Int32 EC_VARIANT_TYPE_ARRAY = 0x80;
 
+        /// <summary>
+        /// The EcOpenSubscription function is used to open an existing subscription or create a new subscription according to the flag value specified.
+        /// </summary>
+        /// <param name="SubscriptionName">Specifies the name of the subscription. The value provided for this parameter should be unique within the computer's scope.</param>
+        /// <param name="AccessMask">An access mask that specifies the desired access rights to the subscription. Use the EC_READ_ACCESS or EC_WRITE_ACCESS constants to specify the access rights. The function fails if the security descriptor of the subscription does not permit the requested access for the calling process.</param>
+        /// <param name="Flags">A value specifying whether a new or existing subscription will be opened. Use the EC_CREATE_NEW, EC_OPEN_ALWAYS, or EC_OPEN_EXISTING constants.</param>
+        /// <returns>If the function succeeds, it returns an handle (EC_HANDLE) to a new subscription object. Returns NULL otherwise, in which case use the GetLastError function to obtain the error code.</returns>
         [DllImport("wecapi.dll", SetLastError = true, CharSet = CharSet.Auto)]
         public static extern IntPtr EcOpenSubscription(
              string SubscriptionName,
@@ -479,6 +486,11 @@ namespace WecAdmin
              Int32 Flags
             );
 
+        /// <summary>
+        /// The EcClose function closes a handle received from other Event Collector functions. Any handle returned by an event collector management API call must be closed using this call when the user is finished with the handle. The handle becomes invalid when this function is successfully called.
+        /// </summary>
+        /// <param name="Object">A valid open handle returned from an event collector management API call.</param>
+        /// <returns>True if the function was successful. False if the function failed. Use the GetLastError function to obtain the error code.</returns>
         [DllImport("wecapi.dll", SetLastError = true, CharSet = CharSet.Auto)]
         public static extern bool EcClose(
             IntPtr Object
@@ -552,7 +564,14 @@ namespace WecAdmin
             ref Int32 SubscriptionNameBufferUsed
             );
 
-
+        /// <summary>
+        /// The EcSetSubscriptionProperty function sets new values or updates existing values of a subscription. New values set through this method will not be active unless they are saved by the EcSaveSubscription method.
+        /// </summary>
+        /// <param name="Subscription">The handle to the subscription object.</param>
+        /// <param name="PropertyId">A value from the EC_SUBSCRIPTION_PROPERTY_ID enumeration that specifies which property of the subscription to set.</param>
+        /// <param name="Flags">Reserved. Must be 0.</param>
+        /// <param name="PropertyValue">The value of the property to set for the indicated subscription property.</param>
+        /// <returns>TRUE The function was successful. FALSE The function failed.Use the GetLastError function to obtain the error code.</returns>
         [DllImport("wecapi.dll", SetLastError = true, CharSet = CharSet.Unicode)]
         public static extern bool EcSetSubscriptionProperty(
             IntPtr Subscription,
@@ -572,6 +591,5 @@ namespace WecAdmin
             IntPtr Subscription,
             Int32 Flags
             );
-
     } // class PInvokeMethods
 } // namespace WecAdmin
