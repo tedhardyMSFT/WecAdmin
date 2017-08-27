@@ -155,7 +155,7 @@ namespace WecAdmin
                 // now know that we need a buffer of correct size.
                 // alloc the required memory in unmanaged space
                 IntPtr allocPtr = IntPtr.Zero;
-                //TODO:ErrorHandling
+                // this will throw on Out of Memory condition.
                 allocPtr = Marshal.AllocHGlobal(bufferUsed);
 
                 // Marshals data from a managed object to an unmanaged block of memory.
@@ -174,22 +174,22 @@ namespace WecAdmin
                 if (getProp)
                 {
                     WecAdmin.EC_VARIANT results = Marshal.PtrToStructure<WecAdmin.EC_VARIANT>(allocPtr);
-                    //// heartbeat (if present) is in FileTimeUTC format.
-                    //Console.WriteLine("variant type: {0}", results.Type);
                     if (results.Type == (int)PInvokeMethods.EC_VARIANT_TYPE.EcVarTypeDateTime)
                     {
                         lastHeartbeat = DateTime.FromFileTimeUtc(Marshal.ReadInt64(allocPtr));
                     }
-
-                    //Console.WriteLine("\tSource Name: {0}\t Last Heartbeat:{1}", EventSourceName, lastHeartbeat);
                 }
                 Marshal.FreeHGlobal(allocPtr);
             } // if (lastError == ERROR_INSUFFICIENT_BUFFER)
-
             return lastHeartbeat;
         } // public static DateTime GetEventSourceLastHeartbeat(string SubscriptionName, string EventSourceName)
 
-
+        /// <summary>
+        /// Retrieves the runtime status of the event source (computer FQDN) for the subscription.
+        /// </summary>
+        /// <param name="SubscriptionName"></param>
+        /// <param name="EventSourceName"></param>
+        /// <returns></returns>
         public static string GetEventSourceStatus(string SubscriptionName, string EventSourceName)
         {
             int bufferSize = 0;
@@ -200,7 +200,7 @@ namespace WecAdmin
             bool getProp = PInvokeMethods.EcGetSubscriptionRunTimeStatus(
                 SubscriptionName,
                 PInvokeMethods.EC_SUBSCRIPTION_RUNTIME_STATUS_INFO_ID.EcSubscriptionRunTimeStatusActive,
-                EventSourceName, // pass in null for all sources.
+                EventSourceName, // specific event source name to get status.
                 0, // pass in zero - docs say pass in NULL (is reserved)
                 bufferSize,
                 outputBuffer,
@@ -267,7 +267,11 @@ namespace WecAdmin
             return eventSourceStatus;
         } // public static DateTime GetEventSourceLastHeartbeat(string SubscriptionName, string EventSourceName)
 
-
+        /// <summary>
+        /// Returns all event sources for the subscription name.
+        /// </summary>
+        /// <param name="subscriptionName"></param>
+        /// <returns></returns>
         public static  List<string> ListSubscriptionRuntimeEventSources(string subscriptionName)
         {
             List<string> eventSources = new List<string>();
@@ -482,6 +486,7 @@ namespace WecAdmin
         public static bool SetSubscriptionPort(string SubscriptionName, UInt32 PortNumber)
         {
             bool returnVal = false;
+            string errorMessage = string.Empty;
             // open handle to subscription.
             IntPtr subHandle = openSubscription(SubscriptionName, (int)(EC_READ_ACCESS | EC_WRITE_ACCESS), (int)EC_OPEN_EXISTING);
 
@@ -491,28 +496,28 @@ namespace WecAdmin
             portUpdate.Type = (uint)PInvokeMethods.EC_VARIANT_TYPE.EcVarTypeUInt32;
             // marshal string to unmanaged memory
             IntPtr portPtr = IntPtr.Zero;
-
             portPtr =  Marshal.AllocHGlobal(sizeof(UInt32));
-
             Marshal.WriteInt32(portPtr, (int)PortNumber);
-
-            portUpdate.UInt32Val = portPtr;
-
+            //portUpdate.UInt32Val = portPtr;
+            portUpdate.UInt32Val = PortNumber;
             int ecVariantSize = Marshal.SizeOf(portUpdate);
-
             IntPtr ecVariantPtr = Marshal.AllocHGlobal(Marshal.SizeOf(portUpdate));
-
-
-
             Marshal.StructureToPtr(portUpdate, ecVariantPtr, true);
 
             returnVal = PInvokeMethods.EcSetSubscriptionProperty(
                 subHandle,
-                (Int32)PInvokeMethods.EC_SUBSCRIPTION_PROPERTY_ID.EcSubscriptionQuery,
+                (Int32)PInvokeMethods.EC_SUBSCRIPTION_PROPERTY_ID.EcSubscriptionTransportPort,
                 0,
                 ecVariantPtr);
 
             Int32 lastError = Marshal.GetLastWin32Error();
+            errorMessage = new Win32Exception(Marshal.GetLastWin32Error()).Message;
+            Console.WriteLine("update satus:{0} last error:{1} message:{2}", returnVal, lastError, errorMessage);
+            Console.WriteLine("Saving subscription");
+            returnVal = PInvokeMethods.EcSaveSubscription(subHandle, 0);
+            lastError = Marshal.GetLastWin32Error();
+            errorMessage = new Win32Exception(Marshal.GetLastWin32Error()).Message;
+            Console.WriteLine("update satus:{0} last error:{1} message:{2}", returnVal, lastError, errorMessage);
 
             // close the handle to the subscription.
             PInvokeMethods.EcClose(subHandle);
@@ -524,6 +529,103 @@ namespace WecAdmin
             
             return returnVal;
         } // public static bool SetSubscriptionFilter(string SubscriptionName, string EventFilter)
+
+        public static bool SetSubscriptionContentFormat(string SubscriptionName, bool RenderedText)
+        {
+            bool returnVal = false;
+            string errorMessage = string.Empty;
+            // open handle to subscription.
+            IntPtr subHandle = openSubscription(SubscriptionName, (int)(EC_READ_ACCESS | EC_WRITE_ACCESS), (int)EC_OPEN_EXISTING);
+            PInvokeMethods.EC_SUBSCRIPTION_CONTENT_FORMAT contentFormat = PInvokeMethods.EC_SUBSCRIPTION_CONTENT_FORMAT.EcContentFormatEvents;
+            if (RenderedText)
+            {
+                contentFormat = PInvokeMethods.EC_SUBSCRIPTION_CONTENT_FORMAT.EcContentFormatRenderedText;
+            }
+            EC_VARIANT subUpdate = new EC_VARIANT();
+            subUpdate.Type = (uint)PInvokeMethods.EC_VARIANT_TYPE.EcVarTypeUInt32;
+            // marshal string to unmanaged memory
+            IntPtr portPtr = IntPtr.Zero;
+            portPtr = Marshal.AllocHGlobal(sizeof(UInt32));
+            Marshal.WriteInt32(portPtr, (int)contentFormat);
+            //subUpdate.UInt32Val = portPtr;
+            subUpdate.UInt32Val = (UInt32)contentFormat;
+            int ecVariantSize = Marshal.SizeOf(subUpdate);
+            IntPtr ecVariantPtr = Marshal.AllocHGlobal(Marshal.SizeOf(subUpdate));
+            Marshal.StructureToPtr(subUpdate, ecVariantPtr, true);
+            Console.WriteLine("Updating Subscription");
+            returnVal = PInvokeMethods.EcSetSubscriptionProperty(
+                subHandle,
+                (Int32)PInvokeMethods.EC_SUBSCRIPTION_PROPERTY_ID.EcSubscriptionContentFormat,
+                0,
+                ecVariantPtr);
+
+            Int32 lastError = Marshal.GetLastWin32Error();
+            errorMessage = new Win32Exception(Marshal.GetLastWin32Error()).Message;
+            Console.WriteLine("update satus:{0} last error:{1} message:{2}", returnVal, lastError, errorMessage);
+            Console.WriteLine("Saving subscription");
+            returnVal = PInvokeMethods.EcSaveSubscription(subHandle, 0);
+            lastError = Marshal.GetLastWin32Error();
+            errorMessage = new Win32Exception(Marshal.GetLastWin32Error()).Message;
+            Console.WriteLine("update satus:{0} last error:{1} message:{2}", returnVal, lastError, errorMessage);
+            // close the handle to the subscription.
+            PInvokeMethods.EcClose(subHandle);
+            // free structure memory
+            Marshal.FreeHGlobal(ecVariantPtr);
+            return returnVal;
+        } // public static bool SetSubscriptionContentFormat(string SubscriptionName, bool RenderedText)
+
+        /// <summary>
+        /// Updates the subscription to log to the supplied event channel name.
+        /// </summary>
+        /// <param name="SubscriptionName">Name of the subscription.</param>
+        /// <param name="ChannelName"></param>
+        /// <returns></returns>
+        public static bool SetSubscriptionDestinationChannel(string SubscriptionName, string ChannelName)
+        {
+            string errorMessage = string.Empty;
+            bool returnVal = false;
+            // open handle to subscription with flags
+            IntPtr subHandle = openSubscription(SubscriptionName, (int)(EC_READ_ACCESS | EC_WRITE_ACCESS), (int)EC_OPEN_EXISTING);
+            // allocate un-managed memory for the string and get the pointer.
+            EC_VARIANT subUpdate = new EC_VARIANT();
+            // set the type in EC_VARIANT
+            subUpdate.Type = (uint)PInvokeMethods.EC_VARIANT_TYPE.EcVarTypeString;
+            // marshal string to unmanaged memory
+            IntPtr filterPtr = Marshal.StringToHGlobalAuto(ChannelName);
+            subUpdate.StringValue = filterPtr;
+            // get struct size and allocate un-managed memory
+            int ecVariantSize = Marshal.SizeOf(subUpdate);
+            IntPtr ecVariantPtr = Marshal.AllocHGlobal(ecVariantSize);
+            // marshal the pointer into un-managed memory
+            Marshal.StructureToPtr<EC_VARIANT>(subUpdate, ecVariantPtr, true);
+
+            // make the Win32 call
+            returnVal = PInvokeMethods.EcSetSubscriptionProperty(
+                subHandle,
+                (int)PInvokeMethods.EC_SUBSCRIPTION_PROPERTY_ID.EcSubscriptionLogFile,
+                0, // Flag is always null, per docs
+                ecVariantPtr);
+
+            int lastError = Marshal.GetLastWin32Error();
+            errorMessage = new Win32Exception(Marshal.GetLastWin32Error()).Message;
+            Console.WriteLine("update satus:{0} last error:{1} message:{2}", returnVal, lastError, errorMessage);
+            Console.WriteLine("Saving subscription");
+            returnVal = PInvokeMethods.EcSaveSubscription(subHandle, 0);
+            lastError = Marshal.GetLastWin32Error();
+            errorMessage = new Win32Exception(Marshal.GetLastWin32Error()).Message;
+            Console.WriteLine("update satus:{0} last error:{1} message:{2}", returnVal, lastError, errorMessage);
+
+
+
+            // close the handle to the subscription.
+            PInvokeMethods.EcClose(subHandle);
+            // free structure memory
+            Marshal.FreeHGlobal(ecVariantPtr);
+            // free event filter unmanaged memory
+            Marshal.FreeHGlobal(filterPtr);
+            return returnVal;
+
+        } // public static bool SetSubscriptionContentFormat(string SubscriptionName, bool RenderedText)
 
     } // public class EventCollectorAdmin
 } // namespace WecAdmin
