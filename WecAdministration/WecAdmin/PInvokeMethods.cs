@@ -26,7 +26,7 @@ namespace WecAdmin
         ///  an unsigned 32-bit integer value
         /// </summary>
         [FieldOffset(0)]
-        public IntPtr UInt32Val;
+        public UInt32 UInt32Val;
         /// <summary>
         /// A ULONGLONG value
         /// </summary>
@@ -72,6 +72,22 @@ namespace WecAdmin
     class PInvokeMethods
     {
         #region Enumeration Definitions
+
+        /// <summary>
+        /// The EC_SUBSCRIPTION_CONTENT_FORMAT enumeration specifies how events will be rendered on the computer that sends the events before the events are sent to the event collector computer
+        /// </summary>
+        public enum EC_SUBSCRIPTION_CONTENT_FORMAT
+        {
+            /// <summary>
+            /// When an event is received, the Event Collector service sends an event as the received event to an event log. The service sends the raw event data only, and not any localized event data.
+            /// </summary>
+            EcContentFormatEvents = 1,
+            /// <summary>
+            /// When an event is received, the Event Collector service sends an event as rendered text to an event log. The service sends raw event data and localized event information.
+            /// </summary>
+            EcContentFormatRenderedText = 2
+        } // public enum EcContentFormatRenderedText
+
         /// <summary>
         /// Specifies a value that identifies a property of the runtime status of an event source or a subscription.
         /// </summary>
@@ -580,7 +596,6 @@ namespace WecAdmin
 
         ///TODO:Implement Signature: EcInsertObjectArrayElement  
 
-        ///TODO:Implement Signature: 
         /// <summary>
         /// The EcOpenSubscriptionEnum function is creates a subscription enumerator to enumerate all registered subscriptions on the local machine.
         /// </summary>
