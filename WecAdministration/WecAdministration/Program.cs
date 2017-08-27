@@ -54,7 +54,7 @@ namespace WecAdministration
             bool filterUpdate = WecAdmin.EventCollectorAdmin.SetSubscriptionFilter(subName, NewEventFilter);
             Console.WriteLine("Update status:{0}", filterUpdate);
             //Console.WriteLine("Updating port.");
-            //bool portUpdate = WecAdmin.EventCollectorAdmin.SetSubscriptionPort(subName, 9999);
+            bool portUpdate = WecAdmin.EventCollectorAdmin.SetSubscriptionPort(subName, 9999);
             //Console.WriteLine("Update status:{0}", portUpdate);
             currentEventFilter = WecAdmin.EventCollectorAdmin.GetSubscriptionFilter(subName);
             Console.WriteLine("New Filter:{0}", currentEventFilter);
@@ -70,7 +70,13 @@ namespace WecAdministration
                 Console.WriteLine("\tSource:{0}\tHeartbeat:{1}\tStatus:{2}", subSources[i], lastHeartbeat.ToString("o"), sourceStatus);
                 
             }
+
             Console.WriteLine("Done getting hearbeat times");
+
+            WecAdmin.EventCollectorAdmin.SetSubscriptionContentFormat(subName, false);
+
+            WecAdmin.EventCollectorAdmin.SetSubscriptionDestinationChannel(subName, "Application");
+
             Console.WriteLine("Hit Enter to exit.");
             Console.ReadLine();
         } // static void Main(string[] args)
