@@ -46,7 +46,7 @@ namespace WecAdministration
             // hardcoded to work with top swubscriptionName.
             subName = subs[0];
             Console.WriteLine("Getting event filter");
-            string currentEventFilter = WecAdmin.EventCollectorAdmin.GetSubscriptionFilter(subName);
+            string currentEventFilter = WecAdmin.EventCollectorAdmin.GetSubscriptionFilter2(subName);
             Console.WriteLine("Filter:{0}", currentEventFilter);
 
             string NewEventFilter = "<QueryList><Query Id='0' Path='System'><Select Path='System'>*[System[(EventID=7045)]]</Select></Query></QueryList>";
@@ -60,13 +60,13 @@ namespace WecAdministration
             Console.WriteLine("New Filter:{0}", currentEventFilter);
 
             Console.WriteLine("Getting sources for sub:{0}", subName);
-            List<string> subSources = WecAdmin.EventCollectorAdmin.ListSubscriptionRuntimeEventSources(subName);
+            List<string> subSources = WecAdmin.EventCollectorAdmin.ListSubscriptionRuntimeEventSources2(subName);
 
             Console.WriteLine("[WecAdmin]:Getting heartbeat times for eventsources for subscription:{0}", subName);
             for(int i = 0; i < subSources.Count; i++)
             {
-                DateTime lastHeartbeat = WecAdmin.EventCollectorAdmin.GetEventSourceLastHeartbeat(subName, subSources[i]);
-                string sourceStatus = WecAdmin.EventCollectorAdmin.GetEventSourceStatus(subName, subSources[i]);
+                DateTime lastHeartbeat = WecAdmin.EventCollectorAdmin.GetEventSourceLastHeartbeat2(subName, subSources[i]);
+                string sourceStatus = WecAdmin.EventCollectorAdmin.GetEventSourceStatus2(subName, subSources[i]);
                 Console.WriteLine("\tSource:{0}\tHeartbeat:{1}\tStatus:{2}", subSources[i], lastHeartbeat.ToString("o"), sourceStatus);
                 
             }
