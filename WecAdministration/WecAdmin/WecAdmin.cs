@@ -762,7 +762,7 @@ namespace WecAdmin
 
             EC_VARIANT portUpdate = new EC_VARIANT() {
                 Type = (uint)NativeMethods.EC_VARIANT_TYPE.EcVarTypeUInt32,
-                UInt32Val = PortNumber
+                UInt32Val = portPtr
             };
             int ecVariantSize = Marshal.SizeOf(portUpdate);
             IntPtr ecVariantPtr = Marshal.AllocHGlobal(Marshal.SizeOf(portUpdate));
@@ -784,19 +784,17 @@ namespace WecAdmin
             Console.WriteLine("update satus:{0} last error:{1} message:{2}", returnVal, lastError, errorMessage);
 
             // free unmanaged meory
-            Marshal.FreeHGlobal(portPtr);
-            Marshal.FreeHGlobal(ecVariantPtr);
+            if (portPtr != IntPtr.Zero)
+                Marshal.FreeHGlobal(portPtr);
+            if (ecVariantPtr != IntPtr.Zero)
+                Marshal.FreeHGlobal(ecVariantPtr);
 
             // close the handle to the subscription.
             NativeMethods.EcClose(subHandle);
 
             Console.WriteLine("update satus:{0} last error:{1}", returnVal, lastError);
-
-            // free structure memory
-            Marshal.FreeHGlobal(ecVariantPtr);
-            
             return returnVal;
-        } // public static bool SetSubscriptionFilter(string SubscriptionName, string EventFilter)
+        } // public static bool SetSubscriptionPort(string SubscriptionName, UInt32 PortNumber)
 
         public static bool SetSubscriptionContentFormat(string SubscriptionName, bool RenderedText)
         {
@@ -809,18 +807,18 @@ namespace WecAdmin
             {
                 contentFormat = NativeMethods.EC_SUBSCRIPTION_CONTENT_FORMAT.EcContentFormatRenderedText;
             }
-            IntPtr portPtr = IntPtr.Zero;
-            portPtr = Marshal.AllocHGlobal(sizeof(UInt32));
-            Marshal.WriteInt32(portPtr, (int)contentFormat);
+            IntPtr cfPtr = IntPtr.Zero;
+            cfPtr = Marshal.AllocHGlobal(sizeof(UInt32));
+            Marshal.WriteInt32(cfPtr, (int)contentFormat);
 
             EC_VARIANT subUpdate = new EC_VARIANT() {
                 Type = (uint)NativeMethods.EC_VARIANT_TYPE.EcVarTypeUInt32,
-                UInt32Val = (UInt32)contentFormat
+                UInt32Val = cfPtr
             };
             int ecVariantSize = Marshal.SizeOf(subUpdate);
             IntPtr ecVariantPtr = Marshal.AllocHGlobal(Marshal.SizeOf(subUpdate));
             Marshal.StructureToPtr(subUpdate, ecVariantPtr, true);
-            Console.WriteLine("Updating Subscription");
+            Console.WriteLine("Updating Subscription content format");
             returnVal = NativeMethods.EcSetSubscriptionProperty(
                 subHandle,
                 (Int32)NativeMethods.EC_SUBSCRIPTION_PROPERTY_ID.EcSubscriptionContentFormat,
@@ -830,16 +828,20 @@ namespace WecAdmin
             Int32 lastError = Marshal.GetLastWin32Error();
             errorMessage = new Win32Exception(lastError).Message;
             Console.WriteLine("update satus:{0} last error:{1} message:{2}", returnVal, lastError, errorMessage);
-            Console.WriteLine("Saving subscription");
+            Console.WriteLine("Saving subscription content format");
             returnVal = NativeMethods.EcSaveSubscription(subHandle, 0);
             lastError = Marshal.GetLastWin32Error();
             errorMessage = new Win32Exception(lastError).Message;
             Console.WriteLine("update satus:{0} last error:{1} message:{2}", returnVal, lastError, errorMessage);
+
+            // free structure memory
+            if (cfPtr != IntPtr.Zero)
+                Marshal.FreeHGlobal(cfPtr);
+            if (ecVariantPtr != IntPtr.Zero)
+                Marshal.FreeHGlobal(ecVariantPtr);
+
             // close the handle to the subscription.
             NativeMethods.EcClose(subHandle);
-            // free structure memory
-            Marshal.FreeHGlobal(portPtr);
-            Marshal.FreeHGlobal(ecVariantPtr);
             return returnVal;
         } // public static bool SetSubscriptionContentFormat(string SubscriptionName, bool RenderedText)
 
