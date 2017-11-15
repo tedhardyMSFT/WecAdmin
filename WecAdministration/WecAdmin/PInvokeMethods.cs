@@ -21,57 +21,85 @@ namespace WecAdmin
         /// A boolean value
         /// </summary>
         [FieldOffset(0)]
-        public IntPtr BooleanVal;
+        internal IntPtr BooleanVal;
         /// <summary>
         ///  an unsigned 32-bit integer value
         /// </summary>
         [FieldOffset(0)]
-        public UInt32 UInt32Val;
+        internal UInt32 UInt32Val;
         /// <summary>
         /// A ULONGLONG value
         /// </summary>
         [FieldOffset(0)]
-        public IntPtr DateTimeVal;
+        internal IntPtr DateTimeVal;
         /// <summary>
         /// A null-terminated Unicode value
         /// </summary>
         [FieldOffset(0)]
-        public IntPtr StringValue;
+        internal IntPtr StringValue;
         /// <summary>
         /// a hexadecimal binary value
         /// </summary>
         [FieldOffset(0)]
-        public byte BinaryVal;
+        internal byte BinaryVal;
         /// <summary>
         /// A pointer to an array of Boolean values
         /// </summary>
         [FieldOffset(0)]
-        public IntPtr BooleanArr;
+        internal IntPtr BooleanArr;
         /// <summary>
         /// A pointer to an arrya of signed 32-bit integer values
         /// </summary>
         [FieldOffset(0)]
-        public IntPtr Int32Arr;
+        internal IntPtr Int32Arr;
         /// <summary>
         /// A pointer to an array of null-terminated strings
         /// </summary>
         [FieldOffset(0)]
-        public IntPtr StringArr;
+        internal IntPtr StringArr;
         /// <summary>
         /// The number of elements (not legnth) in bytes. Used for arrays and binary or string types.
         /// </summary>
         [FieldOffset(8)]
-        public UInt32 Count;
+        internal UInt32 Count;
         /// <summary>
         /// The type of data in the structure. Use a value from the EC_VARIANT_TYPE enumeration to specify the type. When the type is specified, you can use any of the union members to access the actual value. For example, if the type is EcVarTypeDateTime, then the value is DateTimeVal in the EC_VARIANT structure.
         /// </summary>
         [FieldOffset(12)]
-        public UInt32 Type;
+        internal UInt32 Type;
     } // public struct EC_VARIANT
 
-    class PInvokeMethods
+    class NativeMethods
     {
         #region Enumeration Definitions
+
+        /// <summary>
+        /// The EC_SUBSCRIPTION_CREDENTIALS_TYPE enumeration specifies the type of credentials to use when communicating with event sources.
+        /// </summary>
+        public enum EC_SUBSCRIPTION_CREDENTIALS_TYPE
+        {
+            /// <summary>
+            /// Negotiate with event sources to specify a proper authentication type without specifying a username and password for the subscription credentials.
+            /// </summary>
+            EcSubscriptionCredDefault = 0,
+            /// <summary>
+            /// WinRM will negotiate with event sources to specify a proper authentication type for the subscription credentials.
+            /// </summary>
+            EcSubscriptionCredNegotiate = 1,
+            /// <summary>
+            /// Use digest authentication for the subscription credentials.
+            /// </summary>
+            EcSubscriptionCredDigest = 2,
+            /// <summary>
+            /// Send a username and password to use as credentials for the subscription.
+            /// </summary>
+            EcSubscriptionCredBasic = 3,
+            /// <summary>
+            /// Use the local computer's domain account credentials to create a subscription instead of using user credentials for the subscription. This has the advantage of not having to manage user accounts and password expiration to simplify long lasting subscription management.
+            /// </summary>
+            EcSubscriptionCredLocalMachine = 4
+
+        } // public enum EC_SUBSCRIPTION_CREDENTIALS_TYPE
 
         /// <summary>
         /// The EC_SUBSCRIPTION_CONTENT_FORMAT enumeration specifies how events will be rendered on the computer that sends the events before the events are sent to the event collector computer
