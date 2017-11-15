@@ -49,7 +49,7 @@ namespace WecAdministration
             string currentEventFilter = WecAdmin.EventCollectorAdmin.GetSubscriptionFilter2(subName);
             Console.WriteLine("Filter:{0}", currentEventFilter);
 
-            string NewEventFilter = "<QueryList><Query Id='0' Path='System'><Select Path='System'>*[System[(EventID=7045)]]</Select></Query></QueryList>";
+            string NewEventFilter = "<QueryList><Query Id='0' Path='System'><Select Path='System'>*[System[(EventID=8045)]]</Select></Query></QueryList>";
             Console.WriteLine("Updating filter.");
             bool filterUpdate = WecAdmin.EventCollectorAdmin.SetSubscriptionFilter(subName, NewEventFilter);
             Console.WriteLine("Update status:{0}", filterUpdate);
