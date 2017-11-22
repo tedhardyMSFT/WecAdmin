@@ -1,110 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Runtime.InteropServices;
-using WecAdmin;
-using System.Security.Permissions;
-using System.Runtime.Serialization;
+
 
 //TODO:DEVNOTE - look at SafeHandle and SafeBuffer instead of IntPtr.
 
 namespace WecAdmin
 {
-    /// <summary>
-    /// Exception specific to calling Event Collector API commands
-    /// </summary>
-    [Serializable]
-    public class EventCollectorApiException : Exception
-    {
-        /// <summary>
-        /// Initializes a new EventCollectorApiException object that includes the Win32API and Event Collector API name.
-        /// </summary>
-        /// <param name="Message">Message describing the exception.</param>
-        /// <param name="win32Error">Win32 Error code from the native call</param>
-        /// <param name="EcApiName">Name of the API called</param>
-        public EventCollectorApiException(string Message, int win32Error, string EcApiName) : base(Message)
-        {
-            EventCollectorApi = EcApiName;
-            Win32ErrorCode = win32Error;
-            Win32ErrorMessage = new Win32Exception(Win32ErrorCode).Message;
-            SubscriptionName = null;
-            EventSourceName = null;
-        }
-
-        /// <summary>
-        /// Initializes a new EventCollectorApiException object that includes the Win32API and Event Collector API name, and Target subscription name.
-        /// </summary>
-        /// <param name="Message">Message describing the exception.</param>
-        /// <param name="win32Error">Win32 Error code from the native call</param>
-        /// <param name="EcApiName">Name of the API called</param>
-        /// <param name="TargetSubscriptionName">Target Subscription name</param>
-        public EventCollectorApiException(string Message, int win32Error, string EcApiName, string TargetSubscriptionName) : base(Message)
-        {
-            SubscriptionName = TargetSubscriptionName;
-            EventCollectorApi = EcApiName;
-            Win32ErrorCode = win32Error;
-            Win32ErrorMessage = new Win32Exception(Win32ErrorCode).Message;
-            EventSourceName = null;
-        }
-
-        /// <summary>
-        /// Initializes a new EventCollectorApiException object that includes the Win32API and Event Collector API name, Target subscription name, and Event Source name.
-        /// </summary>
-        /// <param name="Message">Message describing the exception.</param>
-        /// <param name="win32Error">Win32 Error code from the native call</param>
-        /// <param name="EcApiName">Name of the API called</param>
-        /// <param name="TargetSubscriptionName">Target Subscription name</param>
-        /// <param name="TargetEventSourceName">Target Event source name referenced in the API call.</param>
-        public EventCollectorApiException(string Message, int win32Error, string EcApiName, string TargetSubscriptionName, string TargetEventSourceName) : base(Message)
-        {
-            SubscriptionName = TargetSubscriptionName;
-            EventCollectorApi = EcApiName;
-            Win32ErrorCode = win32Error;
-            Win32ErrorMessage = new Win32Exception(Win32ErrorCode).Message;
-            EventSourceName = TargetEventSourceName;
-            
-        }
-
-        [SecurityPermission(SecurityAction.Demand, SerializationFormatter = true)]
-        public override void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            base.GetObjectData(info, context);
-            // add other values to object data here
-            // example:
-            // info.AddValue("CheckedOut", _CheckedOut);
-            info.AddValue("EventCollectorApi", this.EventCollectorApi);
-            info.AddValue("Win32Errorcode", this.Win32ErrorCode);
-            info.AddValue("Win32ErrorMessage", this.Win32ErrorMessage);
-        }
-
-        /// <summary>
-        /// Event Source name if supplied, null if not supplied.
-        /// </summary>
-        public string EventSourceName { get; private set; }
-
-        /// <summary>
-        /// Name of the Subscription referenced in the call, null if not supplied.
-        /// </summary>
-        public string SubscriptionName { get; private set; }
-
-        /// <summary>
-        /// Name of the Event Collector API called.
-        /// </summary>
-        public string EventCollectorApi { get; private set; }
-
-        /// <summary>
-        /// Win32 error code returned from the underlying API.
-        /// </summary>
-        public Int32 Win32ErrorCode { get; private set; }
-
-        /// <summary>
-        /// Localized message for the supplied win32 error code.
-        /// </summary>
-        public string Win32ErrorMessage { get; private set; }
-    } // public class EventCollectorApiException : Exception
 
     public class EventCollectorAdmin
     {
@@ -123,18 +26,22 @@ namespace WecAdmin
         /// Read access control permission that allows information to be read from the event collector.
         /// </summary>
         private const Int32 EC_READ_ACCESS = 1;
+
         /// <summary>
         /// Write access control permission that allows information to be written to the event collector.
         /// </summary>
         private const Int32 EC_WRITE_ACCESS = 2;
+
         /// <summary>
         /// Opens an existing subscription or creates the subscription if it does not exist. Used by the EcOpenSubscription method.
         /// </summary>
         private const Int32 EC_OPEN_ALWAYS = 0;
+
         /// <summary>
         /// A flag passed to the EcOpenSubscription function specifying that a new subscription should be created.
         /// </summary>
         private const Int32 EC_CREATE_NEW = 1;
+
         /// <summary>
         /// A flag passed to the EcOpenSubscription function specifying that an existing subscription should be opened.
         /// </summary>
@@ -163,13 +70,16 @@ namespace WecAdmin
             int lastWin32Error = -1;
 
             // Open Subscription enum handle
-            // if zero, then return empty list.
+            // per docs - pass in Null/0 to the open subbscription
             ecEnumHandle = NativeMethods.EcOpenSubscriptionEnum(0);
             if (IntPtr.Zero == ecEnumHandle)
             {
                 lastWin32Error =  Marshal.GetLastWin32Error();
                 // no handle returned for enumerating subscriptions.
-                throw new EventCollectorApiException("Error opening subscription enumeration handle", lastWin32Error, "EcOpenSubscriptionEnum");
+                throw new EventCollectorApiException(
+                    "Error opening subscription enumeration handle",
+                    lastWin32Error, 
+                    "EcOpenSubscriptionEnum");
             }
             
             // keep unumerating until no more subscriptions.
@@ -209,11 +119,14 @@ namespace WecAdmin
                     // if successful, add to list
                     if (enumReturnVal)
                     {
-                        string subscriptionName = Marshal.PtrToStringAuto(allocPtr);
+                        string subscriptionName = Marshal.PtrToStringUni(allocPtr);
                         SubscriptionList.Add(subscriptionName);
                     }
-                    // free unmanaged memory allocation
-                    Marshal.FreeHGlobal(allocPtr);
+                    if (allocPtr != IntPtr.Zero)
+                    {
+                        // free unmanaged memory allocation
+                        Marshal.FreeHGlobal(allocPtr);
+                    }
                 } // if (lastWin32Error == ERROR_INSUFFICIENT_BUFFER)
             } // while (enumReturnVal)
             // close the handle 
@@ -275,7 +188,11 @@ namespace WecAdmin
                         lastHeartbeat = DateTime.FromFileTimeUtc(Marshal.ReadInt64(allocPtr));
                     }
                 }
-                Marshal.FreeHGlobal(allocPtr);
+                if (allocPtr != IntPtr.Zero)
+                {
+                    // free unmanaged memory allocation
+                    Marshal.FreeHGlobal(allocPtr);
+                }
             } // if (lastError == ERROR_INSUFFICIENT_BUFFER)
             return lastHeartbeat;
         } // public static DateTime GetEventSourceLastHeartbeat(string SubscriptionName, string EventSourceName)
@@ -306,7 +223,11 @@ namespace WecAdmin
                     {
                         lastHeartbeat = DateTime.FromFileTimeUtc(Marshal.ReadInt64(outputBuffer));
                     }
-                    Marshal.FreeHGlobal(outputBuffer);
+                    if (outputBuffer != IntPtr.Zero)
+                    {
+                        // free unmanaged memory allocation
+                        Marshal.FreeHGlobal(outputBuffer);
+                    }
                 }
             } // if (callStatus != 0)
             return lastHeartbeat;
@@ -318,7 +239,7 @@ namespace WecAdmin
         /// <param name="SubscriptionName"></param>
         /// <param name="EventSourceName"></param>
         /// <returns></returns>
-        public static string GetEventSourceStatus(string SubscriptionName, string EventSourceName)
+        public static string GetEventSourceStatus_old(string SubscriptionName, string EventSourceName)
         {
             int bufferSize = 0;
             int bufferUsed = 0;
@@ -389,7 +310,11 @@ namespace WecAdmin
 
                     //Console.WriteLine("\tSource Name: {0}\t Last Heartbeat:{1}", EventSourceName, lastHeartbeat);
                 }
-                Marshal.FreeHGlobal(allocPtr);
+                if (allocPtr != IntPtr.Zero)
+                {
+                    // free unmanaged memory allocation
+                    Marshal.FreeHGlobal(allocPtr);
+                }
             } // if (lastError == ERROR_INSUFFICIENT_BUFFER)
 
             return eventSourceStatus;
@@ -401,12 +326,12 @@ namespace WecAdmin
         /// <param name="SubscriptionName"></param>
         /// <param name="EventSourceName"></param>
         /// <returns></returns>
-        public static string GetEventSourceStatus2(string SubscriptionName, string EventSourceName)
+        public static string GetEventSourceStatus(string SubscriptionName, string EventSourceName)
         {
             IntPtr outputBuffer = IntPtr.Zero;
             string eventSourceStatus = string.Empty;
 
-            int returnCode = ExecGetSubscriptionRuntimeStatus(
+            int returnCode = EventCollectorAdmin.ExecGetSubscriptionRuntimeStatus(
                 SubscriptionName, 
                 EventSourceName, 
                 NativeMethods.EC_SUBSCRIPTION_RUNTIME_STATUS_INFO_ID.EcSubscriptionRunTimeStatusActive, 
@@ -430,7 +355,6 @@ namespace WecAdmin
                             case 2:
                                 eventSourceStatus = "Active";
                                 break;
-
                             case 3:
                                 eventSourceStatus = "Inactive";
                                 break;
@@ -442,100 +366,37 @@ namespace WecAdmin
                                 break;
                         }
                     }
-                Marshal.FreeHGlobal(outputBuffer);
+                if (outputBuffer != IntPtr.Zero)
+                {
+                    // free unmanaged memory allocation
+                    Marshal.FreeHGlobal(outputBuffer);
+                }
             } // if (returnCode == 0)
-
             return eventSourceStatus;
         } // public static DateTime GetEventSourceLastHeartbeat(string SubscriptionName, string EventSourceName)
 
-
         /// <summary>
         /// Returns all event sources for the subscription name.
         /// </summary>
         /// <param name="subscriptionName"></param>
         /// <returns></returns>
-        public static  List<string> ListSubscriptionRuntimeEventSources(string subscriptionName)
-        {
-            List<string> eventSources = new List<string>();
-            //EC_VARIANT outputBuffer = new EC_VARIANT();
-            IntPtr outputBuffer = IntPtr.Zero;
-            Int32 bufferSize = 0;
-            Int32 bufferUsed = 0;
-            Console.WriteLine("initial call to retrieve sources");
-
-            bool getProp = NativeMethods.EcGetSubscriptionRunTimeStatus(
-                subscriptionName,
-                NativeMethods.EC_SUBSCRIPTION_RUNTIME_STATUS_INFO_ID.EcSubscriptionRunTimeStatusEventSources,
-                null,
-                0, // pass in zero - docs say pass in NULL (is reserved)
-                bufferSize,
-                outputBuffer,
-                ref bufferUsed
-                );
-            int lastError = Marshal.GetLastWin32Error();
-
-            // insufficient buffer, expected, so re-run with proper buffer size
-            if (lastError == ERROR_INSUFFICIENT_BUFFER)
-            {
-                Console.WriteLine("Retrying with buffer size:{0}", bufferUsed);
-                // now know that we need a buffer of correct size.
-                // alloc the required memory in unmanaged space
-                IntPtr allocPtr = Marshal.AllocHGlobal(bufferUsed);
-                // Marshals data from a managed object to an unmanaged block of memory.
-                //Marshal.StructureToPtr(outputBuffer, allocPtr, false);
-                bufferSize = bufferUsed;
-                getProp = NativeMethods.EcGetSubscriptionRunTimeStatus(
-                    subscriptionName,
-                    NativeMethods.EC_SUBSCRIPTION_RUNTIME_STATUS_INFO_ID.EcSubscriptionRunTimeStatusEventSources,
-                    null,
-                    0,
-                    bufferSize,
-                    allocPtr,
-                    ref bufferUsed
-                    );
-
-                if (getProp)
-                {
-                    EC_VARIANT results = Marshal.PtrToStructure<EC_VARIANT>(allocPtr);
-                    int length = (int)results.Count;
-
-                    for (int i = 0; i < length; i++)
-                    {
-                        // [pointer arithmetic] to move along the array, pointer by pointer.
-                        IntPtr newPtr = IntPtr.Add(results.StringArr, (IntPtr.Size * i)); //results.StringArr + (IntPtr.Size * i);
-                        // for each pointer, read the string it points to.
-                        string sourceName = Marshal.PtrToStringUni(Marshal.ReadIntPtr(newPtr));
-                        eventSources.Add(sourceName);
-                    } // for (int i = 0; i < length; i++)
-                } // if (getProp)
-                // free unmanaged memory allocation
-                Marshal.FreeHGlobal(allocPtr);
-            } // if (lastError == ERROR_INSUFFICIENT_BUFFER)
-
-            return eventSources;
-        } // private static  List<string> ListSubscriptionRuntimeEventSources(string SubscriptionName)
-
-
-        /// <summary>
-        /// Returns all event sources for the subscription name.
-        /// </summary>
-        /// <param name="subscriptionName"></param>
-        /// <returns></returns>
-        public static List<string> ListSubscriptionRuntimeEventSources2(string subscriptionName)
+        public static List<string> ListSubscriptionRuntimeEventSources(string subscriptionName)
         {
             List<string> eventSources = new List<string>();
             //EC_VARIANT outputBuffer = new EC_VARIANT();
             IntPtr outputBuffer = IntPtr.Zero;
             Console.WriteLine("initial call to retrieve sources");
-            Int32 returnCode = ExecGetSubscriptionRuntimeStatus(subscriptionName, null, NativeMethods.EC_SUBSCRIPTION_RUNTIME_STATUS_INFO_ID.EcSubscriptionRunTimeStatusEventSources, ref outputBuffer);
+            Int32 returnCode = ExecGetSubscriptionRuntimeStatus(
+                subscriptionName, 
+                null, 
+                NativeMethods.EC_SUBSCRIPTION_RUNTIME_STATUS_INFO_ID.EcSubscriptionRunTimeStatusEventSources, 
+                ref outputBuffer);
 
-            // insufficient buffer, expected, so re-run with proper buffer size
             if (returnCode == 0)
             {
-
                     EC_VARIANT results = Marshal.PtrToStructure<EC_VARIANT>(outputBuffer);
                     int length = (int)results.Count;
-
+                    // move through the array items, each one a pointer to a new string.
                     for (int i = 0; i < length; i++)
                     {
                         // [pointer arithmetic] to move along the array, pointer by pointer.
@@ -545,9 +406,12 @@ namespace WecAdmin
                         eventSources.Add(sourceName);
                     } // for (int i = 0; i < length; i++)
                 // free unmanaged memory allocation
-                Marshal.FreeHGlobal(outputBuffer);
-            } // if (lastError == ERROR_INSUFFICIENT_BUFFER)
-
+                if (outputBuffer != IntPtr.Zero)
+                {
+                    // free unmanaged memory allocation
+                    Marshal.FreeHGlobal(outputBuffer);
+                }
+            } // if (returnCode == 0)
             return eventSources;
         } // private static  List<string> ListSubscriptionRuntimeEventSources(string SubscriptionName)
 
@@ -557,7 +421,7 @@ namespace WecAdmin
         /// </summary>
         /// <param name="subscriptionName">Name of the subscription</param>
         /// <returns>Event Query filter</returns>
-        public static string GetSubscriptionFilter(string subscriptionName)
+        public static string GetSubscriptionFilter_old(string subscriptionName)
         {
             string eventFilter = string.Empty;
 
@@ -615,11 +479,15 @@ namespace WecAdmin
                     // event Filter is a string type, read that value.
                     if (results.Type == (int)NativeMethods.EC_VARIANT_TYPE.EcVarTypeString)
                     {
-                        eventFilter = Marshal.PtrToStringAuto(results.StringValue);
+                        eventFilter = Marshal.PtrToStringUni(results.StringValue);
                     }
                 } // if (getProp)
                 // free unmanaged memory allocation
-                Marshal.FreeHGlobal(allocPtr);
+                if (allocPtr != IntPtr.Zero)
+                {
+                    // free unmanaged memory allocation
+                    Marshal.FreeHGlobal(allocPtr);
+                }
 
                 // close the handle to the subscription.
                 NativeMethods.EcClose(subscriptionHandle);
@@ -632,7 +500,7 @@ namespace WecAdmin
         /// </summary>
         /// <param name="subscriptionName">Name of the subscription</param>
         /// <returns>Event Query filter</returns>
-        public static string GetSubscriptionFilter2(string subscriptionName)
+        public static string GetSubscriptionFilter(string subscriptionName)
         {
             string eventFilter = string.Empty;
 
@@ -644,79 +512,28 @@ namespace WecAdmin
 
             subscriptionHandle = OpenSubscription(subscriptionName, (int)EC_READ_ACCESS, (int)EC_OPEN_EXISTING);
 
-            int returnCode = ExecGetSubscriptionProperty(subscriptionHandle, NativeMethods.EC_SUBSCRIPTION_PROPERTY_ID.EcSubscriptionQuery, ref outputBuffer);
+            int returnCode = ExecGetSubscriptionProperty(
+                subscriptionHandle, 
+                NativeMethods.EC_SUBSCRIPTION_PROPERTY_ID.EcSubscriptionQuery, 
+                ref outputBuffer);
 
             // convert into structure
             WecAdmin.EC_VARIANT results = Marshal.PtrToStructure<WecAdmin.EC_VARIANT>(outputBuffer);
             // event Filter is a string type, read that value.
             if (results.Type == (int)NativeMethods.EC_VARIANT_TYPE.EcVarTypeString)
             {
-                eventFilter = Marshal.PtrToStringAuto(results.StringValue);
+                eventFilter = Marshal.PtrToStringUni(results.StringValue);
             }
 
-            // free unmanaged memory allocation
-            Marshal.FreeHGlobal(outputBuffer);
-
+            if (outputBuffer != IntPtr.Zero)
+            {
+                // free unmanaged memory allocation
+                Marshal.FreeHGlobal(outputBuffer);
+            }
             // close the handle to the subscription.
             NativeMethods.EcClose(subscriptionHandle);
             return eventFilter;
         } // public static string GetSubscriptionFilter(string subscriptionName)
-
-
-        /// <summary>
-        /// Updates the event query filter for the supplied subscription.
-        /// </summary>
-        /// <param name="SubscriptionName">Name of the subscription to update</param>
-        /// <param name="EventFilter">new event query string</param>
-        /// <returns>True if successful</returns>
-        public static bool SetSubscriptionFilter(string SubscriptionName, string EventFilter)
-        {
-            string errorMessage = string.Empty;
-            bool returnVal = false;
-            // open handle to subscription with flags
-            IntPtr subHandle = OpenSubscription(SubscriptionName, (int)(EC_READ_ACCESS | EC_WRITE_ACCESS), (int)EC_OPEN_EXISTING);
-            // marshal string to unmanaged memory
-            IntPtr filterPtr = Marshal.StringToHGlobalAuto(EventFilter);
-            // allocate un-managed memory for the string and get the pointer.
-            EC_VARIANT queryUpdate = new EC_VARIANT() { 
-                // set the type in EC_VARIANT
-                Type = (uint)NativeMethods.EC_VARIANT_TYPE.EcVarTypeString,
-                StringValue = filterPtr
-            };
-            // get struct size and allocate un-managed memory
-            int ecVariantSize = Marshal.SizeOf(queryUpdate);
-            IntPtr ecVariantPtr = Marshal.AllocHGlobal(ecVariantSize);
-            // marshal the pointer into un-managed memory
-            Marshal.StructureToPtr<EC_VARIANT>(queryUpdate, ecVariantPtr, true);
-
-            // make the Win32 call
-            returnVal = NativeMethods.EcSetSubscriptionProperty(
-                subHandle,
-                (int)NativeMethods.EC_SUBSCRIPTION_PROPERTY_ID.EcSubscriptionQuery,
-                0, // Flag is always null, per docs
-                ecVariantPtr);
-            int lastError = Marshal.GetLastWin32Error();
-            errorMessage = new Win32Exception(lastError).Message;
-            Console.WriteLine("update satus:{0} last error:{1} message:{2}", returnVal, lastError, errorMessage);
-            Console.WriteLine("Saving subscription");
-            // required for subscription changes to take effect.
-            // May return non-zero status depending on subscription status.
-            returnVal = NativeMethods.EcSaveSubscription(subHandle, 0);
-            lastError = Marshal.GetLastWin32Error();
-            errorMessage = new Win32Exception(lastError).Message;
-            Console.WriteLine("update satus:{0} last error:{1} message:{2}", returnVal, lastError, errorMessage);
-            // close the handle to the subscription.
-            NativeMethods.EcClose(subHandle);
-
-            //TODO: Verify if DestroyStructure is needed or not.
-            //Marshal.DestroyStructure<EC_VARIANT>(ecVariantPtr);
-            // free structure memory
-            Marshal.FreeHGlobal(ecVariantPtr);
-            // free event filter unmanaged memory
-            Marshal.FreeHGlobal(filterPtr);
-            return returnVal;
-        } // public static bool SetSubscriptionFilter(string SubscriptionName, string EventFilter)
-
 
         /// <summary>
         /// Updates the event query filter for the supplied subscription.
@@ -732,7 +549,11 @@ namespace WecAdmin
             // open handle to subscription with flags
             IntPtr subHandle = OpenSubscription(SubscriptionName, (int)(EC_READ_ACCESS | EC_WRITE_ACCESS), (int)EC_OPEN_EXISTING);
 
-            lastError = ExecSetSubscriptionProperty(subHandle, NativeMethods.EC_SUBSCRIPTION_PROPERTY_ID.EcSubscriptionQuery, EventFilter);
+            lastError = ExecSetSubscriptionProperty(
+                subHandle,
+                NativeMethods.EC_SUBSCRIPTION_PROPERTY_ID.EcSubscriptionQuery,
+                EventFilter
+                );
 
             // required for subscription changes to take effect.
             // May return non-zero status depending on subscription status.
@@ -858,7 +679,7 @@ namespace WecAdmin
             // open handle to subscription with flags
             IntPtr subHandle = OpenSubscription(SubscriptionName, (int)(EC_READ_ACCESS | EC_WRITE_ACCESS), (int)EC_OPEN_EXISTING);
             // marshal string to unmanaged memory
-            IntPtr filterPtr = Marshal.StringToHGlobalAuto(ChannelName);
+            IntPtr filterPtr = Marshal.StringToHGlobalUni(ChannelName);
             // allocate un-managed memory for the string and get the pointer.
             EC_VARIANT subUpdate = new EC_VARIANT()
             {
@@ -887,18 +708,21 @@ namespace WecAdmin
             lastError = Marshal.GetLastWin32Error();
             errorMessage = new Win32Exception(lastError).Message;
             Console.WriteLine("update satus:{0} last error:{1} message:{2}", returnVal, lastError, errorMessage);
-
-
-
+            if (ecVariantPtr != IntPtr.Zero)
+            {
+                // free unmanaged memory allocation
+                Marshal.FreeHGlobal(ecVariantPtr);
+            }
+            if (filterPtr != IntPtr.Zero)
+            {
+                // free unmanaged memory allocation
+                Marshal.FreeHGlobal(filterPtr);
+            }
             // close the handle to the subscription.
             NativeMethods.EcClose(subHandle);
-            // free structure memory
-            Marshal.FreeHGlobal(ecVariantPtr);
-            // free event filter unmanaged memory
-            Marshal.FreeHGlobal(filterPtr);
             return returnVal;
 
-        } // public static bool SetSubscriptionContentFormat(string SubscriptionName, bool RenderedText)
+        } // public static bool SetSubscriptionDestinationChannel(string SubscriptionName, string ChannelName)
 
         /// <summary>
         /// Executes the win32 API EcGetSubscriptionProperty and returns the pointer to the buffer value.
@@ -963,8 +787,43 @@ namespace WecAdmin
                     "EcGetSubscriptionProperty");
             }
             return lastError;
-        } // public static string GetSubscriptionFilter(string subscriptionName)
+        } // private static int ExecGetSubscriptionProperty(IntPtr subscriptionHandle, 
 
+        public static bool GetSubscriptionRuntimeStatus(string SubscriptionName)
+        {
+            bool subscriptionStatus = false;
+            //  pointers for subscription handle and results structure
+            IntPtr subscriptionHandle = IntPtr.Zero;
+            IntPtr outputBuffer = IntPtr.Zero;
+
+            subscriptionHandle = OpenSubscription(SubscriptionName, (int)EC_READ_ACCESS, (int)EC_OPEN_EXISTING);
+
+            int returnCode = ExecGetSubscriptionProperty(
+                subscriptionHandle, 
+                NativeMethods.EC_SUBSCRIPTION_PROPERTY_ID.EcSubscriptionEnabled,
+                ref outputBuffer);
+
+            // convert into structure
+            WecAdmin.EC_VARIANT results = Marshal.PtrToStructure<WecAdmin.EC_VARIANT>(outputBuffer);
+            // event Filter is a string type, read that value.
+            if (results.Type == (int)NativeMethods.EC_VARIANT_TYPE.EcVarTypeBoolean)
+            {
+                byte rawSubscriptionStatus = results.BooleanVal;
+                if (rawSubscriptionStatus > 0x0)
+                {
+                    subscriptionStatus = true;
+                }
+            }
+
+            if (outputBuffer != IntPtr.Zero)
+            {
+                // free unmanaged memory allocation
+                Marshal.FreeHGlobal(outputBuffer);
+            }
+            // close the handle to the subscription.
+            NativeMethods.EcClose(subscriptionHandle);
+            return subscriptionStatus;
+        }
 
         /// <summary>
         /// Executes the win32 API EcGetSubscriptionRuntimeStatus and returns the pointer to the buffer value.
@@ -1039,6 +898,13 @@ namespace WecAdmin
             return lastError;
         } // private static int ExecGetSubscriptionRuntimeStatus (string subscriptionName, string eventSourceName, PInvokeMethods.EC_SUBSCRIPTION_RUNTIME_STATUS_INFO_ID StatusType)
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="SubscriptionHandle"></param>
+        /// <param name="PropertyName"></param>
+        /// <param name="value"></param>
+        /// <returns></returns>
         private static int ExecSetSubscriptionProperty(IntPtr SubscriptionHandle, NativeMethods.EC_SUBSCRIPTION_PROPERTY_ID PropertyName, object value)
         {
             // TODO:IMPLEMENT
@@ -1046,7 +912,6 @@ namespace WecAdmin
              * For each Property_ID value there is a single data-type associated with it.
              * use that to determine the cast of the object into the specific data type and then use that to craete a EC_VARIANT 
              * and then call EcSetSubscriptionProperty
-             * 
              */
             
             EC_VARIANT updatedEcVariant = new EC_VARIANT();
@@ -1056,7 +921,6 @@ namespace WecAdmin
             bool setApiReturnVal = false;
             int lastWin32ErrorCode = -1;
 
-
             // depending on the subscription property cast the value and set it in the structure
             switch (PropertyName)
             {
@@ -1065,15 +929,41 @@ namespace WecAdmin
                 case NativeMethods.EC_SUBSCRIPTION_PROPERTY_ID.EcSubscriptionEventSourceEnabled:
                 case NativeMethods.EC_SUBSCRIPTION_PROPERTY_ID.EcSubscriptionReadExistingEvents:
                     updatedEcVariant.Type = (int)NativeMethods.EC_VARIANT_TYPE.EcVarTypeBoolean;
-                    // marshal here
-                    throw new NotImplementedException("does not implement boolean types.");
+                    byte valueByte = 0x0;
+                    if ((Boolean)value)
+                    {
+                        valueByte = 0x1;
+                    }
+                    Marshal.WriteByte(updatedData, valueByte);                    
+                    break;
+                // UInt32 types:
+                case NativeMethods.EC_SUBSCRIPTION_PROPERTY_ID.EcSubscriptionConfigurationMode:
+                case NativeMethods.EC_SUBSCRIPTION_PROPERTY_ID.EcSubscriptionTransportPort:
+                case NativeMethods.EC_SUBSCRIPTION_PROPERTY_ID.EcSubscriptionDeliveryMaxItems:
+                case NativeMethods.EC_SUBSCRIPTION_PROPERTY_ID.EcSubscriptionDeliveryMaxLatencyTime:
+                case NativeMethods.EC_SUBSCRIPTION_PROPERTY_ID.EcSubscriptionHeartbeatInterval:
+                    
+                    updatedData = Marshal.AllocHGlobal(sizeof(UInt32));
+                    Marshal.WriteInt32(updatedData, (int)value);
+                    updatedEcVariant.Type = (int)NativeMethods.EC_VARIANT_TYPE.EcVarTypeUInt32;
+                    updatedEcVariant.UInt32Val = updatedData;
+                    break;
+                // DateTime types:
+                case NativeMethods.EC_SUBSCRIPTION_PROPERTY_ID.EcSubscriptionExpires:
+                    /*DEVNOTE: from msdn
+                     * The Expires property of the subscription that contains the date when the subscription will end. 
+                     * The maximum date that can be used is 3000-12-31T23:59:59.999Z. 
+                     * If this property is not defined, the subscription will not expire. This property is an EcVarTypeDateTime value.
+                     */
                     break;
                 // string array types
                 case NativeMethods.EC_SUBSCRIPTION_PROPERTY_ID.EcSubscriptionEventSources:
+                    // this is more complex than just a string array.
+                    // see here: https://msdn.microsoft.com/en-us/library/bb513651(v=vs.85).aspx
                     // set type to be array
-                    updatedEcVariant.Type = (int)NativeMethods.EC_VARIANT_TYPE.EcVarTypeString | NativeMethods.EC_VARIANT_TYPE_ARRAY;
+                    //updatedEcVariant.Type = (int)NativeMethods.EC_VARIANT_TYPE.EcVarTypeString | NativeMethods.EC_VARIANT_TYPE_ARRAY;
                     // this is an array - need to marshal a pointer to an array of strings
-                    throw new NotImplementedException("does not implement array types.");
+                    throw new NotImplementedException("does not yet implement array types.");
                     break;
                 // string types
                 case NativeMethods.EC_SUBSCRIPTION_PROPERTY_ID.EcSubscriptionEventSourceAddress:
@@ -1095,18 +985,18 @@ namespace WecAdmin
                 case NativeMethods.EC_SUBSCRIPTION_PROPERTY_ID.EcSubscriptionDeniedSubjects:
                 case NativeMethods.EC_SUBSCRIPTION_PROPERTY_ID.EcSubscriptionAllowedSourceDomainComputers:
                     // marshal string into unmanaged memory
-                    updatedData = Marshal.StringToHGlobalAuto((string)value);
+                    updatedData = Marshal.StringToHGlobalUni((string)value);
                     // set fields on EC_VARIANT struct
                     updatedEcVariant.Type = (int)NativeMethods.EC_VARIANT_TYPE.EcVarTypeString;
                     updatedEcVariant.StringValue = updatedData;
-                    // get size of struct  and allocate memory
-                    ecVariantSize = Marshal.SizeOf(updatedEcVariant);
-                    ecVariantPtr = Marshal.AllocHGlobal(ecVariantSize);
-                    // marshal the structure into unmanaged memory
-                    Marshal.StructureToPtr<EC_VARIANT>(updatedEcVariant, ecVariantPtr, true);
                     break;
             } // switch (PropertyName)
 
+            // get size of struct  and allocate memory
+            ecVariantSize = Marshal.SizeOf(updatedEcVariant);
+            ecVariantPtr = Marshal.AllocHGlobal(ecVariantSize);
+            // marshal the structure into unmanaged memory
+            Marshal.StructureToPtr<EC_VARIANT>(updatedEcVariant, ecVariantPtr, true);
 
             // call the native function
             setApiReturnVal = NativeMethods.EcSetSubscriptionProperty(
