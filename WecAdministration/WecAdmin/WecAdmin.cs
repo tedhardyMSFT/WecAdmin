@@ -18,12 +18,25 @@ namespace WecAdmin
     public class EventCollectorApiException : Exception
     {
         /// <summary>
+        /// Initializes a new EventCollectorApiException object that a message and inner exception
+        /// </summary>
+        /// <param name="Message">Message describing the exception.</param>
+        public EventCollectorApiException(string Message, Exception InnerException) : base(Message, InnerException)
+        {
+            EventCollectorApi = string.Empty;
+            Win32ErrorCode = -1;
+            Win32ErrorMessage = string.Empty;
+            SubscriptionName = null;
+            EventSourceName = null;
+        }
+
+        /// <summary>
         /// Initializes a new EventCollectorApiException object that includes the Win32API and Event Collector API name.
         /// </summary>
         /// <param name="Message">Message describing the exception.</param>
         /// <param name="win32Error">Win32 Error code from the native call</param>
         /// <param name="EcApiName">Name of the API called</param>
-        public EventCollectorApiException(string Message, int win32Error, string EcApiName) : base(Message)
+        public EventCollectorApiException(string Message, int win32Error, string EcApiName, Exception InnerException) : base(Message, InnerException)
         {
             EventCollectorApi = EcApiName;
             Win32ErrorCode = win32Error;
@@ -39,7 +52,7 @@ namespace WecAdmin
         /// <param name="win32Error">Win32 Error code from the native call</param>
         /// <param name="EcApiName">Name of the API called</param>
         /// <param name="TargetSubscriptionName">Target Subscription name</param>
-        public EventCollectorApiException(string Message, int win32Error, string EcApiName, string TargetSubscriptionName) : base(Message)
+        public EventCollectorApiException(string Message, int win32Error, string EcApiName, string TargetSubscriptionName, Exception InnerException) : base(Message, InnerException)
         {
             SubscriptionName = TargetSubscriptionName;
             EventCollectorApi = EcApiName;
@@ -56,7 +69,7 @@ namespace WecAdmin
         /// <param name="EcApiName">Name of the API called</param>
         /// <param name="TargetSubscriptionName">Target Subscription name</param>
         /// <param name="TargetEventSourceName">Target Event source name referenced in the API call.</param>
-        public EventCollectorApiException(string Message, int win32Error, string EcApiName, string TargetSubscriptionName, string TargetEventSourceName) : base(Message)
+        public EventCollectorApiException(string Message, int win32Error, string EcApiName, string TargetSubscriptionName, string TargetEventSourceName, Exception InnerException) : base(Message, InnerException)
         {
             SubscriptionName = TargetSubscriptionName;
             EventCollectorApi = EcApiName;
@@ -67,6 +80,11 @@ namespace WecAdmin
         }
 
         /// <summary>
+        /// Name of the Event Collector API called.
+        /// </summary>
+        public string EventCollectorApi { get; private set; }
+
+        /// <summary>
         /// Event Source name if supplied, null if not supplied.
         /// </summary>
         public string EventSourceName { get; private set; }
@@ -75,11 +93,6 @@ namespace WecAdmin
         /// Name of the Subscription referenced in the call, null if not supplied.
         /// </summary>
         public string SubscriptionName { get; private set; }
-
-        /// <summary>
-        /// Name of the Event Collector API called.
-        /// </summary>
-        public string EventCollectorApi { get; private set; }
 
         /// <summary>
         /// Win32 error code returned from the underlying API.
@@ -155,7 +168,11 @@ namespace WecAdmin
             {
                 lastWin32Error =  Marshal.GetLastWin32Error();
                 // no handle returned for enumerating subscriptions.
-                throw new EventCollectorApiException("Error opening subscription enumeration handle", lastWin32Error, "EcOpenSubscriptionEnum");
+                throw new EventCollectorApiException(
+                    "Error opening subscription enumeration handle"
+                    ,lastWin32Error
+                    ,"EcOpenSubscriptionEnum"
+                    ,null);
             }
             
             // keep unumerating until no more subscriptions.
@@ -740,7 +757,7 @@ namespace WecAdmin
 
             EC_VARIANT portUpdate = new EC_VARIANT() {
                 Type = (uint)PInvokeMethods.EC_VARIANT_TYPE.EcVarTypeUInt32,
-                UInt32Val = PortNumber
+                UInt32Val = portPtr
             };
             int ecVariantSize = Marshal.SizeOf(portUpdate);
             IntPtr ecVariantPtr = Marshal.AllocHGlobal(Marshal.SizeOf(portUpdate));
@@ -762,17 +779,17 @@ namespace WecAdmin
             Console.WriteLine("update satus:{0} last error:{1} message:{2}", returnVal, lastError, errorMessage);
 
             // free unmanaged meory
-            Marshal.FreeHGlobal(portPtr);
-            Marshal.FreeHGlobal(ecVariantPtr);
+            if (portPtr != IntPtr.Zero)
+                Marshal.FreeHGlobal(portPtr);
+            if (ecVariantPtr != IntPtr.Zero)
+                Marshal.FreeHGlobal(ecVariantPtr);
 
             // close the handle to the subscription.
             PInvokeMethods.EcClose(subHandle);
 
             Console.WriteLine("update satus:{0} last error:{1}", returnVal, lastError);
 
-            // free structure memory
-            Marshal.FreeHGlobal(ecVariantPtr);
-            
+           
             return returnVal;
         } // public static bool SetSubscriptionFilter(string SubscriptionName, string EventFilter)
 
@@ -787,13 +804,13 @@ namespace WecAdmin
             {
                 contentFormat = PInvokeMethods.EC_SUBSCRIPTION_CONTENT_FORMAT.EcContentFormatRenderedText;
             }
-            IntPtr portPtr = IntPtr.Zero;
-            portPtr = Marshal.AllocHGlobal(sizeof(UInt32));
-            Marshal.WriteInt32(portPtr, (int)contentFormat);
+            IntPtr cfPtr = IntPtr.Zero;
+            cfPtr = Marshal.AllocHGlobal(sizeof(UInt32));
+            Marshal.WriteInt32(cfPtr, (int)contentFormat);
 
             EC_VARIANT subUpdate = new EC_VARIANT() {
                 Type = (uint)PInvokeMethods.EC_VARIANT_TYPE.EcVarTypeUInt32,
-                UInt32Val = (UInt32)contentFormat
+                UInt32Val = cfPtr
             };
             int ecVariantSize = Marshal.SizeOf(subUpdate);
             IntPtr ecVariantPtr = Marshal.AllocHGlobal(Marshal.SizeOf(subUpdate));
@@ -816,8 +833,10 @@ namespace WecAdmin
             // close the handle to the subscription.
             PInvokeMethods.EcClose(subHandle);
             // free structure memory
-            Marshal.FreeHGlobal(portPtr);
-            Marshal.FreeHGlobal(ecVariantPtr);
+            if (cfPtr != IntPtr.Zero)
+                Marshal.FreeHGlobal(cfPtr);
+            if(ecVariantPtr != IntPtr.Zero)
+                Marshal.FreeHGlobal(ecVariantPtr);
             return returnVal;
         } // public static bool SetSubscriptionContentFormat(string SubscriptionName, bool RenderedText)
 
@@ -936,7 +955,8 @@ namespace WecAdmin
                 throw new EventCollectorApiException(
                     string.Format("Error executing EcGetSubscriptionProperty. Return code:{0}", lastError),
                     lastError,
-                    "EcGetSubscriptionProperty");
+                    "EcGetSubscriptionProperty",
+                    null);
             }
             return lastError;
         } // public static string GetSubscriptionFilter(string subscriptionName)
@@ -1008,9 +1028,11 @@ namespace WecAdmin
             {
                 throw new EventCollectorApiException(
                     string.Format("Error executing EcGetSubscriptionRunTimeStatus. Return code:{0}", lastError),
-                    lastError, "EcGetSubscriptionRunTimeStatus",
+                    lastError, 
+                    "EcGetSubscriptionRunTimeStatus",
                     subscriptionName,
-                    eventSourceName);
+                    eventSourceName,
+                    null);
             }
             return lastError;
         } // private static int ExecGetSubscriptionRuntimeStatus (string subscriptionName, string eventSourceName, PInvokeMethods.EC_SUBSCRIPTION_RUNTIME_STATUS_INFO_ID StatusType)
@@ -1052,7 +1074,8 @@ namespace WecAdmin
                     string.Format("Error opening handle to Event Collector Subscription:{0}", subscriptionName),
                     lastError,
                     "EcOpenSubscription",
-                    subscriptionName);
+                    subscriptionName,
+                    null);
             }
             return subHandle;
         } // private static IntPtr openSubscription (string subscriptionName)
