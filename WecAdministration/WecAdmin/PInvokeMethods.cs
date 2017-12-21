@@ -26,7 +26,7 @@ namespace WecAdmin
         ///  an unsigned 32-bit integer value
         /// </summary>
         [FieldOffset(0)]
-        public UInt32 UInt32Val;
+        public IntPtr UInt32Val;
         /// <summary>
         /// A ULONGLONG value
         /// </summary>
