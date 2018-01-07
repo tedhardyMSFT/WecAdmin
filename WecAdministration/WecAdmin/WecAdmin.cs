@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.InteropServices;
+using System.Xml;
 
 
 //TODO:DEVNOTE - look at SafeHandle and SafeBuffer instead of IntPtr.
@@ -11,13 +12,28 @@ namespace WecAdmin
 
     public class EventCollectorAdmin
     {
+        public enum DeliveryConfiguationMode
+        {
+            /// <summary>
+            /// This option ensures reliable delivery of events and does not attempt to conserve bandwidth. It is the appropriate choice unless you need tighter control over bandwidth usage or need forwarded events delivered as quickly as possible. It uses pull delivery mode, batches 5 items at a time and sets a batch timeout of 15 minutes
+            /// </summary>
+            Normal = 0,
+            /// <summary>
+            /// This option ensures that the use of network bandwidth for event delivery is strictly controlled. It is an appropriate choice if you want to limit the frequency of network connections made to deliver events. It uses push delivery mode and sets a batch timeout of 6 hours. In addition, it uses a heartbeat interval of 6 hours.
+            /// </summary>
+            MinBandwidth = 1,
+            MinLatency = 2,
+            Custom = 3
+        }
+
         /// <summary>
         /// The data area passed to a system call is too small.
         /// </summary>
         private const int ERROR_INSUFFICIENT_BUFFER = 0x7a;
 
         /// <summary>
-        /// [WinError.h] No more data is available.
+        /// [WinError.h] No more data is available. 
+        /// Used for subscription enumeration.
         /// </summary>
         private const int ERROR_NO_MORE_ITEMS = 259;
 
@@ -57,6 +73,89 @@ namespace WecAdmin
         /// </summary>
         private const Int32 EC_VARIANT_TYPE_ARRAY = 0x80;
 
+        public static bool CreateSubscriptionFromXml(XmlDocument SubscriptionConfiguration)
+        {
+            // implementation reference: https://msdn.microsoft.com/en-us/library/bb870971(v=vs.85).aspx
+            if (null == SubscriptionConfiguration)
+            {
+                throw new ArgumentNullException("SubscriptionConfiguation parameter cannot be null");
+            }
+
+            // WEC subscriptions have a namespace associated with them, use for querying XML.
+            XmlNamespaceManager ecNsMgr = new XmlNamespaceManager(SubscriptionConfiguration.NameTable);
+            ecNsMgr.AddNamespace("ec", @"http://schemas.microsoft.com/2006/03/windows/events/subscription");
+
+            XmlNode subscriptionName = SubscriptionConfiguration.DocumentElement.SelectSingleNode("//ec:Subscription/ec:SubscriptionId", ecNsMgr);
+            if (null == subscriptionName || subscriptionName.InnerText == string.Empty)
+            {
+                throw new ArgumentException("Required configuration node: /Subscription/SubscriptionId missing or empty");
+
+            }
+            // TODO:PARAMETERCHECK - make sure the subscription ID passes the filesystem + registry + eventlog name requirements.
+
+            XmlNode subscriptionType = SubscriptionConfiguration.DocumentElement.SelectSingleNode("//ec:Subscription/ec:SubscriptionType", ecNsMgr);
+            if (null == subscriptionType || (subscriptionType.InnerText != "CollectorInitiated" && subscriptionType.InnerText != "SourceInitiated"))
+            {
+                throw new ArgumentException("Required configuration node: /Subscription/SubscriptionType missing or invalid value. Valid values: [SourceInitiated, CollectorInitiated]");
+            }
+
+            XmlNode description = SubscriptionConfiguration.DocumentElement.SelectSingleNode("//ec:Subscription/ec:Description", ecNsMgr);
+            if (null == description)
+            {
+                //TODO:DECIDE -- really needed or just a nice to have?
+                throw new ArgumentException("Required configuration node: /Subscription/Description missing");
+            }
+
+            XmlNode enabled = SubscriptionConfiguration.DocumentElement.SelectSingleNode("//ec:Subscription/ec:Enabled", ecNsMgr);
+            if (null == enabled || (enabled.InnerText != "true" && enabled.InnerText != "false"))
+            {
+                throw new ArgumentException("Required configuration node: /Subscription/Enabled missing or invalid value. Valid values: [true, false]");
+            }
+
+
+            // Required configuration items
+            /*
+             * Xml Path : Name
+             * /Subscription/SubscriptionId : subscription name
+             * /Subscription/SubscrpitionType : sub type [SourceInitiated || CollectorInitiated]
+               /Subscription/Enabled
+               /Subscription/Uri  (MUST be: http://schemas.microsoft.com/wbem/wsman/1/windows/EventLog)
+             * /Subscription/ConfigurationMode [Normal, Custom, MinLatency, MinBandwitdh]
+             * 
+             * */
+
+            // check settings for required property values
+
+            //* /Subscription/Description
+            // check existing subscriptions for name collision
+
+
+            // create handle to subscription
+            //      EC_READ_ACCESS | EC_WRITE_ACCESS, 
+            //      EC_CREATE_NEW
+
+            // for delivery options - if "custom" then check for batch/delay values being set
+            // set ALL the properties
+            // save
+            // example/ref: https://msdn.microsoft.com/en-us/library/bb870971(v=vs.85).aspx
+
+            throw new NotImplementedException("CreateSubscription - implement me fully!");
+
+        } // public static bool CreateSubscriptionFromXml(XmlDocument SubscriptionConfiguration)
+
+        public static bool CreateSubscripion(Dictionary<string,string> SubscriptionConfigurationItems)
+        {
+            //TODO:DEV-DECIDE - use a configuration class?
+            throw new NotImplementedException("Not implemented, me too!");
+
+        }
+
+        public static bool DeleteSubscription(string SubscriptionName)
+        {
+            throw new NotImplementedException("DeleteSubscription - implement me!");
+            // example ref: https://msdn.microsoft.com/en-us/library/bb513653(v=vs.85).aspx
+        }
+
         /// <summary>
         /// Returns a list of the names of subscriptions registered on the local system.
         /// </summary>
@@ -74,6 +173,7 @@ namespace WecAdmin
             ecEnumHandle = NativeMethods.EcOpenSubscriptionEnum(0);
             if (IntPtr.Zero == ecEnumHandle)
             {
+                // throw if no useful pointer returned
                 lastWin32Error =  Marshal.GetLastWin32Error();
                 // no handle returned for enumerating subscriptions.
                 throw new EventCollectorApiException(
@@ -134,70 +234,15 @@ namespace WecAdmin
             return SubscriptionList;
         } // public static List<string> EnumerateSubscriptions()
 
+
+
         /// <summary>
         /// Retrieves the last heartbeat or status update time for the event source from the subscription.
         /// </summary>
         /// <param name="SubscriptionName">Name of the subscription to enumerate</param>
         /// <param name="EventSourceName">Name of the event source to retreieve heartbeat status</param>
-        /// <returns>DateTime of the latest heartbeat for the source. If no source then 1600-01-01</returns>
+        /// <returns>DateTime of the latest heartbeat for the source</returns>
         public static DateTime GetEventSourceLastHeartbeat(string SubscriptionName, string EventSourceName)
-        {
-            int bufferSize = 0;
-            int bufferUsed = 0;
-            IntPtr outputBuffer = IntPtr.Zero;
-            DateTime lastHeartbeat = DateTime.FromFileTimeUtc(0);
-
-            bool getProp = NativeMethods.EcGetSubscriptionRunTimeStatus(
-                SubscriptionName,
-                NativeMethods.EC_SUBSCRIPTION_RUNTIME_STATUS_INFO_ID.EcSubscriptionRunTimeStatusLastHeartbeatTime,
-                EventSourceName, 
-                0, // pass in zero - docs say pass in NULL (is reserved)
-                bufferSize,
-                outputBuffer,
-                ref bufferUsed
-                );
-            int lastError = Marshal.GetLastWin32Error();
-
-            // insufficient buffer, expected, so re-run with proper buffer size
-            if (lastError == ERROR_INSUFFICIENT_BUFFER)
-            {
-                // now know that we need a buffer of correct size.
-                // alloc the required memory in unmanaged space
-                IntPtr allocPtr = IntPtr.Zero;
-                // this will throw on Out of Memory condition.
-                allocPtr = Marshal.AllocHGlobal(bufferUsed);
-
-                // Marshals data from a managed object to an unmanaged block of memory.
-                //Marshal.StructureToPtr(outputBuffer, allocPtr, false);
-                bufferSize = bufferUsed;
-                getProp = NativeMethods.EcGetSubscriptionRunTimeStatus(
-                    SubscriptionName,
-                    NativeMethods.EC_SUBSCRIPTION_RUNTIME_STATUS_INFO_ID.EcSubscriptionRunTimeStatusLastHeartbeatTime,
-                    EventSourceName, // pass in null for all sources.
-                    0,
-                    bufferSize,
-                    allocPtr,
-                    ref bufferUsed
-                    );
-
-                if (getProp)
-                {
-                    WecAdmin.EC_VARIANT results = Marshal.PtrToStructure<WecAdmin.EC_VARIANT>(allocPtr);
-                    if (results.Type == (int)NativeMethods.EC_VARIANT_TYPE.EcVarTypeDateTime)
-                    {
-                        lastHeartbeat = DateTime.FromFileTimeUtc(Marshal.ReadInt64(allocPtr));
-                    }
-                }
-                if (allocPtr != IntPtr.Zero)
-                {
-                    // free unmanaged memory allocation
-                    Marshal.FreeHGlobal(allocPtr);
-                }
-            } // if (lastError == ERROR_INSUFFICIENT_BUFFER)
-            return lastHeartbeat;
-        } // public static DateTime GetEventSourceLastHeartbeat(string SubscriptionName, string EventSourceName)
-
-        public static DateTime GetEventSourceLastHeartbeat2(string SubscriptionName, string EventSourceName)
         {
             if (string.IsNullOrEmpty(EventSourceName))
             {
@@ -206,7 +251,7 @@ namespace WecAdmin
 
             DateTime lastHeartbeat = DateTime.FromFileTimeUtc(0);
             IntPtr outputBuffer = IntPtr.Zero;
-            int callStatus = ExecGetSubscriptionRuntimeStatus(
+            int callStatus = EventCollectorAdmin.ExecGetSubscriptionRuntimeStatus(
                 SubscriptionName, 
                 EventSourceName,  
                 NativeMethods.EC_SUBSCRIPTION_RUNTIME_STATUS_INFO_ID.EcSubscriptionRunTimeStatusLastHeartbeatTime, 
@@ -215,7 +260,6 @@ namespace WecAdmin
 
             if (callStatus == 0)
             {
-                // api returned zero, time to inspect output buffer
                 if (outputBuffer != IntPtr.Zero)
                 {
                     WecAdmin.EC_VARIANT results = Marshal.PtrToStructure<WecAdmin.EC_VARIANT>(outputBuffer);
@@ -229,7 +273,12 @@ namespace WecAdmin
                         Marshal.FreeHGlobal(outputBuffer);
                     }
                 }
-            } // if (callStatus != 0)
+            } else {
+                throw new EventCollectorApiException(
+                    string.Format("Error retrieving last heartbeat time for source {0} for subscriptio: {1}", EventSourceName, SubscriptionName),
+                    callStatus,
+                    "EcGetSubscriptionRuntimeStatus");
+            }
             return lastHeartbeat;
         } // public static DateTime GetEventSourceLastHeartbeat2(string SubscriptionName, string EventSourceName)
 
@@ -616,6 +665,11 @@ namespace WecAdmin
             Console.WriteLine("update satus:{0} last error:{1}", returnVal, lastError);
             return returnVal;
         } // public static bool SetSubscriptionPort(string SubscriptionName, UInt32 PortNumber)
+
+        public static bool SetSubscriptionDeliveryOptions(string ConfigurationMode, UInt32 DeliveryMaxitems, UInt32 DeliveryMaxLatencyTime, UInt32 HeartbeatInterval)
+        {
+            throw new NotImplementedException("Not implemented, do me next!");
+        }
 
         public static bool SetSubscriptionContentFormat(string SubscriptionName, bool RenderedText)
         {
