@@ -45,8 +45,10 @@ namespace WecAdministration
             }
             // hardcoded to work with top swubscriptionName.
             subName = subs[0];
+            Console.WriteLine("Getting subscription status for subscription:{0}", subName);
+            bool foo = WecAdmin.EventCollectorAdmin.GetSubscriptionRuntimeStatus(subName);
             Console.WriteLine("Getting event filter");
-            string currentEventFilter = WecAdmin.EventCollectorAdmin.GetSubscriptionFilter2(subName);
+            string currentEventFilter = WecAdmin.EventCollectorAdmin.GetSubscriptionFilter(subName);
             Console.WriteLine("Filter:{0}", currentEventFilter);
 
             string NewEventFilter = "<QueryList><Query Id='0' Path='System'><Select Path='System'>*[System[(EventID=1945)]]</Select></Query></QueryList>";
@@ -60,19 +62,27 @@ namespace WecAdministration
             Console.WriteLine("New Filter:{0}", currentEventFilter);
 
             Console.WriteLine("Getting sources for sub:{0}", subName);
-            List<string> subSources = WecAdmin.EventCollectorAdmin.ListSubscriptionRuntimeEventSources2(subName);
+            List<string> subSources = WecAdmin.EventCollectorAdmin.ListSubscriptionRuntimeEventSources(subName);
 
             Console.WriteLine("[WecAdmin]:Getting heartbeat times for eventsources for subscription:{0}", subName);
             for(int i = 0; i < subSources.Count; i++)
             {
-                DateTime lastHeartbeat = WecAdmin.EventCollectorAdmin.GetEventSourceLastHeartbeat2(subName, subSources[i]);
-                string sourceStatus = WecAdmin.EventCollectorAdmin.GetEventSourceStatus2(subName, subSources[i]);
+                DateTime lastHeartbeat = WecAdmin.EventCollectorAdmin.GetEventSourceLastHeartbeat(subName, subSources[i]);
+                string sourceStatus = WecAdmin.EventCollectorAdmin.GetEventSourceStatus(subName, subSources[i]);
                 Console.WriteLine("\tSource:{0}\tHeartbeat:{1}\tStatus:{2}", subSources[i], lastHeartbeat.ToString("o"), sourceStatus);
-                
             }
 
             Console.WriteLine("Done getting hearbeat times");
 
+            try
+            {
+                DateTime dummyStatus = WecAdmin.EventCollectorAdmin.GetEventSourceLastHeartbeat(subName, "foo.bar.contoso.com");
+                Console.WriteLine("dummy status:{0}", dummyStatus);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("dummy: Exception:{0}", ex.Message);
+            }
             WecAdmin.EventCollectorAdmin.SetSubscriptionContentFormat(subName, false);
 
             WecAdmin.EventCollectorAdmin.SetSubscriptionDestinationChannel(subName, "Application");
