@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Xml;
 
 namespace WecAdmin
 {
@@ -71,6 +72,7 @@ namespace WecAdmin
         {
             // set default values
             this.WsManUri = "http://schemas.microsoft.com/wbem/wsman/1/windows/EventLog";
+            this.Locale = "en-us";
             this.SubscriptionDescription = string.Empty;
         }
 
@@ -78,10 +80,123 @@ namespace WecAdmin
         {
             throw new NotImplementedException();
 
+            // call validate subscription
             // get subscription handle with create/new
             // call setSubscriptionSettings
             // close subscriptionHandle
         }
+        
+        public bool ValidateSubscription()
+        {
+            throw new NotImplementedException();
+        }
+
+        public static bool CreateSubscriptionFromXml(XmlDocument SubscriptionConfigurationData)
+        {
+            // implementation reference: https://msdn.microsoft.com/en-us/library/bb870971(v=vs.85).aspx
+            if (null == SubscriptionConfigurationData)
+            {
+                throw new ArgumentNullException("SubscriptionConfiguation parameter cannot be null");
+            }
+
+            // WEC subscriptions have a namespace associated with them, use for querying XML.
+            XmlNamespaceManager ecNsMgr = new XmlNamespaceManager(SubscriptionConfigurationData.NameTable);
+            ecNsMgr.AddNamespace("ec", @"http://schemas.microsoft.com/2006/03/windows/events/subscription");
+            SubscriptionConfiguration.DeliveryConfiguationMode subscriptionDeliveryMode = SubscriptionConfiguration.DeliveryConfiguationMode.Normal;
+
+            XmlNode subscriptionName = SubscriptionConfigurationData.DocumentElement.SelectSingleNode("//ec:Subscription/ec:SubscriptionId", ecNsMgr);
+            if (null == subscriptionName || subscriptionName.InnerText == string.Empty)
+            {
+                throw new ArgumentException("Required configuration node: /Subscription/SubscriptionId missing or empty");
+
+            }
+            // TODO:PARAMETERCHECK - make sure the subscription ID passes the filesystem + registry + eventlog name requirements.
+
+            XmlNode subscriptionType = SubscriptionConfigurationData.DocumentElement.SelectSingleNode("//ec:Subscription/ec:SubscriptionType", ecNsMgr);
+            if (null == subscriptionType || (subscriptionType.InnerText != "CollectorInitiated" && subscriptionType.InnerText != "SourceInitiated"))
+            {
+                throw new ArgumentException("Required configuration node: /Subscription/SubscriptionType missing or invalid value. Valid values: [SourceInitiated, CollectorInitiated]");
+            }
+
+            XmlNode enabled = SubscriptionConfigurationData.DocumentElement.SelectSingleNode("//ec:Subscription/ec:Enabled", ecNsMgr);
+            if (null == enabled || (enabled.InnerText != "true" && enabled.InnerText != "false"))
+            {
+                throw new ArgumentException("Required configuration node: /Subscription/Enabled missing or invalid value. Valid values: [true, false]");
+            }
+
+
+            XmlNode subscriptionUri = SubscriptionConfigurationData.DocumentElement.SelectSingleNode("//ec:Subscription/ec:Uri", ecNsMgr);
+            if (null == enabled || (subscriptionUri.InnerText != "http://schemas.microsoft.com/wbem/wsman/1/windows/EventLog"))
+            {
+                throw new ArgumentException("Required configuration node: /Subscription/Uri missing or invalid value. Valid value(s): [http://schemas.microsoft.com/wbem/wsman/1/windows/EventLog]");
+            }
+
+            XmlNode configurationMode = SubscriptionConfigurationData.DocumentElement.SelectSingleNode("//ec:Subscription/ec:ConfigurationMode", ecNsMgr);
+            if (null == enabled)
+            {
+                throw new ArgumentException("Required configuration node: /Subscription/Uri node missing");
+            }
+            else
+            {
+                // check value against 
+                switch (configurationMode.InnerText.ToLower())
+                {
+                    case "normal":
+                        subscriptionDeliveryMode = SubscriptionConfiguration.DeliveryConfiguationMode.Normal;
+                        break;
+                    case "minbandwidth":
+                        subscriptionDeliveryMode = SubscriptionConfiguration.DeliveryConfiguationMode.MinBandwidth;
+                        break;
+                    case "minlatency":
+                        subscriptionDeliveryMode = SubscriptionConfiguration.DeliveryConfiguationMode.MinLatency;
+                        break;
+                    case "custom":
+                        subscriptionDeliveryMode = SubscriptionConfiguration.DeliveryConfiguationMode.Custom;
+                        break;
+                    default:
+                        throw new ArgumentException("ConfigurationMode valud is invalid. Valid values: [Normal, MinBandwidth, MinLatency, Custom]");
+                }
+            }
+
+
+            XmlNode description = SubscriptionConfigurationData.DocumentElement.SelectSingleNode("//ec:Subscription/ec:Description", ecNsMgr);
+            if (null == description)
+            {
+                //TODO:DECIDE -- really needed or just a nice to have?
+                throw new ArgumentException("Required configuration node: /Subscription/Description missing");
+            }
+
+
+            // Required configuration items
+            /*
+             * Xml Path : Name
+             * /Subscription/SubscriptionId : subscription name
+             * /Subscription/SubscrpitionType : sub type [SourceInitiated || CollectorInitiated]
+               /Subscription/Enabled
+               /Subscription/Uri  (MUST be: http://schemas.microsoft.com/wbem/wsman/1/windows/EventLog)
+             * /Subscription/ConfigurationMode [Normal, Custom, MinLatency, MinBandwitdh]
+             * 
+             * */
+
+            // check settings for required property values
+
+            //* /Subscription/Description
+            // check existing subscriptions for name collision
+
+
+            // create handle to subscription
+            //      EC_READ_ACCESS | EC_WRITE_ACCESS, 
+            //      EC_CREATE_NEW
+
+            // for delivery options - if "custom" then check for batch/delay values being set
+            // set ALL the properties
+            // save
+            // example/ref: https://msdn.microsoft.com/en-us/library/bb870971(v=vs.85).aspx
+
+            throw new NotImplementedException("CreateSubscription - implement me fully!");
+
+        } // public static bool CreateSubscriptionFromXml(XmlDocument SubscriptionConfiguration)
+
 
         public bool UpdateSubscriptionSettings()
         {
