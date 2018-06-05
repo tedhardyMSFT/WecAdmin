@@ -12,19 +12,7 @@ namespace WecAdmin
 
     public class EventCollectorAdmin
     {
-        public enum DeliveryConfiguationMode
-        {
-            /// <summary>
-            /// This option ensures reliable delivery of events and does not attempt to conserve bandwidth. It is the appropriate choice unless you need tighter control over bandwidth usage or need forwarded events delivered as quickly as possible. It uses pull delivery mode, batches 5 items at a time and sets a batch timeout of 15 minutes
-            /// </summary>
-            Normal = 0,
-            /// <summary>
-            /// This option ensures that the use of network bandwidth for event delivery is strictly controlled. It is an appropriate choice if you want to limit the frequency of network connections made to deliver events. It uses push delivery mode and sets a batch timeout of 6 hours. In addition, it uses a heartbeat interval of 6 hours.
-            /// </summary>
-            MinBandwidth = 1,
-            MinLatency = 2,
-            Custom = 3
-        }
+
 
         /// <summary>
         /// The data area passed to a system call is too small.
@@ -84,6 +72,7 @@ namespace WecAdmin
             // WEC subscriptions have a namespace associated with them, use for querying XML.
             XmlNamespaceManager ecNsMgr = new XmlNamespaceManager(SubscriptionConfiguration.NameTable);
             ecNsMgr.AddNamespace("ec", @"http://schemas.microsoft.com/2006/03/windows/events/subscription");
+            DeliveryConfiguationMode subscriptionDeliveryMode = DeliveryConfiguationMode.Normal;
 
             XmlNode subscriptionName = SubscriptionConfiguration.DocumentElement.SelectSingleNode("//ec:Subscription/ec:SubscriptionId", ecNsMgr);
             if (null == subscriptionName || subscriptionName.InnerText == string.Empty)
@@ -99,17 +88,51 @@ namespace WecAdmin
                 throw new ArgumentException("Required configuration node: /Subscription/SubscriptionType missing or invalid value. Valid values: [SourceInitiated, CollectorInitiated]");
             }
 
+            XmlNode enabled = SubscriptionConfiguration.DocumentElement.SelectSingleNode("//ec:Subscription/ec:Enabled", ecNsMgr);
+            if (null == enabled || (enabled.InnerText != "true" && enabled.InnerText != "false"))
+            {
+                throw new ArgumentException("Required configuration node: /Subscription/Enabled missing or invalid value. Valid values: [true, false]");
+            }
+
+
+            XmlNode subscriptionUri = SubscriptionConfiguration.DocumentElement.SelectSingleNode("//ec:Subscription/ec:Uri", ecNsMgr);
+            if (null == enabled || (subscriptionUri.InnerText != "http://schemas.microsoft.com/wbem/wsman/1/windows/EventLog"))
+            {
+                throw new ArgumentException("Required configuration node: /Subscription/Uri missing or invalid value. Valid value(s): [http://schemas.microsoft.com/wbem/wsman/1/windows/EventLog]");
+            }
+
+            XmlNode configurationMode = SubscriptionConfiguration.DocumentElement.SelectSingleNode("//ec:Subscription/ec:ConfigurationMode", ecNsMgr);
+            if (null == enabled)
+            {
+                throw new ArgumentException("Required configuration node: /Subscription/Uri node missing");
+            } else
+            {
+                // check value against 
+                switch (configurationMode.InnerText.ToLower())
+                {
+                    case "normal":
+                        subscriptionDeliveryMode = DeliveryConfiguationMode.Normal;
+                        break;
+                    case "minbandwidth":
+                        subscriptionDeliveryMode = DeliveryConfiguationMode.MinBandwidth;
+                        break;
+                    case "minlatency":
+                        subscriptionDeliveryMode = DeliveryConfiguationMode.MinLatency;
+                        break;
+                    case "custom":
+                        subscriptionDeliveryMode = DeliveryConfiguationMode.Custom;
+                        break;
+                    default:
+                        throw new ArgumentException("ConfigurationMode valud is invalid. Valid values: [Normal, MinBandwidth, MinLatency, Custom]");
+                }
+            }
+
+
             XmlNode description = SubscriptionConfiguration.DocumentElement.SelectSingleNode("//ec:Subscription/ec:Description", ecNsMgr);
             if (null == description)
             {
                 //TODO:DECIDE -- really needed or just a nice to have?
                 throw new ArgumentException("Required configuration node: /Subscription/Description missing");
-            }
-
-            XmlNode enabled = SubscriptionConfiguration.DocumentElement.SelectSingleNode("//ec:Subscription/ec:Enabled", ecNsMgr);
-            if (null == enabled || (enabled.InnerText != "true" && enabled.InnerText != "false"))
-            {
-                throw new ArgumentException("Required configuration node: /Subscription/Enabled missing or invalid value. Valid values: [true, false]");
             }
 
 
